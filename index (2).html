@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knife Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ink: #1a1a18;
+    --muted: #888780;
+    --rule: rgba(0,0,0,0.1);
+    --rule-strong: rgba(0,0,0,0.25);
+    --bg: #faf9f6;
+    --card-bg: #f3f1ec;
+    --accent: #3B6D11;
+    --danger: #A32D2D;
+  }
+
+  html, body {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.3s;
+  }
+
+  #loading.hidden { opacity: 0; pointer-events: none; }
+
+  .loader {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 3rem;
+    border-bottom: 0.5px solid var(--rule);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 1.4rem;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+
+  .nav-links button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+    position: relative;
+  }
+
+  .nav-links button.active { color: var(--ink); }
+  .nav-links button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0.5px;
+    background: var(--ink);
+  }
+  .nav-links button:hover { color: var(--ink); }
+
+  .nav-admin {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0.5rem;
+    font-size: 14px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+  .nav-admin:hover { opacity: 1; }
+
+  main { min-height: calc(100vh - 80px); }
+
+  .page {
+    display: none;
+    padding: 5rem 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .page.active { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .page-label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    font-weight: 300;
+    line-height: 1.1;
+    margin-bottom: 3rem;
+    color: var(--ink);
+  }
+
+  .page-title em { font-style: italic; color: var(--accent); }
+
+  .empty-state {
+    border: 0.5px dashed var(--rule-strong);
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+
+  .filter-bar button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.25rem 0;
+  }
+
+  .filter-bar button.active {
+    color: var(--ink);
+    border-bottom: 0.5px solid var(--ink);
+  }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 0.5px solid var(--rule);
+  }
+
+  .product-card {
+    background: var(--bg);
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .product-card:hover { background: var(--card-bg); }
+
+  .product-img {
+    height: 180px;
+    background: var(--card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .product-img img { width: 100%; height: 100%; object-fit: cover; }
+  .product-img-placeholder { color: var(--muted); opacity: 0.4; }
+
+  .product-info { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .product-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .product-meta {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 0.5px solid var(--rule);
+  }
+
+  .product-price { font-size: 13px; font-weight: 500; }
+
+  .product-tag {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 0.5px solid var(--rule-strong);
+    color: var(--muted);
+  }
+
+  .product-tag.available { color: var(--accent); border-color: var(--accent); }
+  .product-tag.sold { color: var(--muted); opacity: 0.6; }
+  .product-tag.made-to-order { color: var(--ink); }
+
+  .admin-controls {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: none;
+    gap: 4px;
+    z-index: 2;
+  }
+
+  body.admin-mode .admin-controls { display: flex; }
+
+  .admin-controls button {
+    background: var(--bg);
+    border: 0.5px solid var(--rule-strong);
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+
+  .admin-controls button:hover { background: var(--ink); color: var(--bg); }
+  .admin-controls button.delete:hover { background: var(--danger); border-color: var(--danger); color: white; }
+
+  .info-content { max-width: 720px; }
+  .info-content p {
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.9;
+    margin-bottom: 1.5rem;
+    font-weight: 300;
+  }
+
+  .info-content h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem;
+    font-weight: 400;
+    margin: 2.5rem 0 1rem;
+  }
+
+  .info-specs {
+    list-style: none;
+    border-top: 0.5px solid var(--rule);
+    margin-top: 2rem;
+  }
+
+  .info-specs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 14px;
+  }
+
+  .info-specs li span:first-child { color: var(--muted); }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    max-width: 900px;
+  }
+
+  .contact-details p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 1.5rem;
+    line-height: 1.9;
+  }
+
+  .contact-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 13px;
+  }
+
+  .contact-line:first-of-type { border-top: 0.5px solid var(--rule); }
+  .contact-line span:first-child {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+  }
+
+  .form-row { margin-bottom: 1.25rem; }
+  .form-row label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .form-row input,
+  .form-row select,
+  .form-row textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 0.5px solid var(--rule-strong);
+    padding: 0.5rem 0;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+
+  .form-row select option { background: var(--bg); }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-bottom-color: var(--ink); }
+  .form-row textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    display: inline-block;
+    padding: 0.75rem 1.8rem;
+    border: 0.5px solid var(--ink);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.2s, color 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+  }
+
+  .btn:hover { background: var(--ink); color: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-accent { border-color: var(--accent); color: var(--accent); }
+  .btn-accent:hover { background: var(--accent); color: var(--bg); }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: white; }
+
+  .admin-bar {
+    display: none;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.75rem 3rem;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  body.admin-mode .admin-bar { display: flex; }
+
+  .admin-bar button {
+    background: transparent;
+    border: 0.5px solid rgba(255,255,255,0.4);
+    color: var(--bg);
+    padding: 0.4rem 1rem;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    margin-left: 0.5rem;
+  }
+
+  .admin-bar button:hover { background: rgba(255,255,255,0.15); }
+
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    backdrop-filter: blur(2px);
+  }
+
+  .modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+
+  .modal {
+    background: var(--bg);
+    border-radius: 4px;
+    max-width: 540px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2.5rem;
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .modal h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+    font-weight: 300;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .detail-view {
+    display: none;
+    padding: 4rem 3rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .detail-view.active { display: block; animation: fadeIn 0.4s ease; }
+
+  .detail-back {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    padding: 0.5rem 0;
+  }
+
+  .detail-back:hover { color: var(--ink); }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 4rem;
+  }
+
+  .detail-img {
+    background: var(--card-bg);
+    height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .detail-img img { width: 100%; height: 100%; object-fit: cover; }
+
+  .detail-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.4rem;
+    font-weight: 300;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+
+  .detail-status {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 0.5px solid var(--rule-strong);
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .detail-status.available { color: var(--accent); border-color: var(--accent); }
+  .detail-price { font-size: 1.2rem; margin-bottom: 2rem; font-weight: 400; }
+
+  .detail-desc {
+    color: var(--ink);
+    margin-bottom: 2rem;
+    line-height: 1.9;
+    font-weight: 300;
+    white-space: pre-wrap;
+  }
+
+  .detail-specs { list-style: none; border-top: 0.5px solid var(--rule); }
+
+  .detail-specs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 13px;
+  }
+
+  .detail-specs li span:first-child {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+  }
+
+  footer {
+    border-top: 0.5px solid var(--rule);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4rem;
+  }
+
+  .editable { position: relative; }
+
+  body.admin-mode .editable:hover {
+    outline: 1px dashed var(--accent);
+    outline-offset: 8px;
+    cursor: pointer;
+  }
+
+  body.admin-mode .editable::after {
+    content: '✎ edit';
+    display: none;
+    position: absolute;
+    top: -28px;
+    right: 0;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+  }
+
+  body.admin-mode .editable:hover::after { display: block; }
+
+  .inquiry-item {
+    border: 0.5px solid var(--rule);
+    padding: 1.25rem;
+    margin-bottom: 0.75rem;
+    background: var(--card-bg);
+  }
+
+  .inquiry-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .inquiry-name { font-weight: 500; color: var(--ink); }
+  .inquiry-msg { font-size: 14px; white-space: pre-wrap; margin-top: 0.5rem; line-height: 1.7; }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.error { background: var(--danger); }
+
+  /* Articles section */
+  .articles-section {
+    margin-top: 5rem;
+    padding-top: 3rem;
+    border-top: 0.5px solid var(--rule);
+  }
+
+  .articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+
+  .article-card {
+    cursor: pointer;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+
+  .article-card:hover { opacity: 0.85; }
+
+  .article-card-img {
+    height: 200px;
+    background: var(--card-bg);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .article-card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .article-card-img-placeholder { color: var(--muted); opacity: 0.4; font-size: 13px; }
+
+  .article-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+  }
+
+  .article-card-date {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Article detail */
+  .article-view {
+    display: none;
+    padding: 4rem 3rem;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .article-view.active { display: block; animation: fadeIn 0.4s ease; }
+
+  .article-hero {
+    width: 100%;
+    height: 420px;
+    background: var(--card-bg);
+    overflow: hidden;
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .article-hero img { width: 100%; height: 100%; object-fit: cover; }
+
+  .article-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.2rem, 4.5vw, 3rem);
+    font-weight: 300;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .article-date {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+
+  .article-body {
+    font-size: 16px;
+    line-height: 1.9;
+    color: var(--ink);
+    font-weight: 300;
+  }
+
+  .article-body p { margin-bottom: 1.5rem; }
+
+  .article-body h2, .article-body h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    margin: 2.5rem 0 1rem;
+  }
+
+  .article-body h2 { font-size: 1.8rem; }
+  .article-body h3 { font-size: 1.4rem; }
+
+  .article-body em { font-style: italic; }
+  .article-body strong { font-weight: 500; }
+
+  .article-body img {
+    max-width: 100%;
+    height: auto;
+    margin: 2rem 0;
+  }
+
+  /* Site text form */
+  .text-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+
+  .text-group:last-of-type { border-bottom: none; }
+
+  .text-group-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .text-group .form-row { margin-bottom: 0.85rem; }
+  .text-group .form-row label { font-size: 10px; }
+
+  @media (max-width: 768px) {
+    .article-view { padding: 2rem 1.5rem; }
+    .article-hero { height: 240px; margin-bottom: 2rem; }
+  }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { gap: 1rem; }
+    .nav-links button { font-size: 10px; }
+    .page, .detail-view { padding: 3rem 1.5rem; }
+    .contact-grid, .detail-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .detail-img { height: 320px; }
+    footer { padding: 1.5rem; flex-direction: column; gap: 0.5rem; }
+    .admin-bar { padding: 0.75rem 1.5rem; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="loader">Loading…</div></div>
+
+<div class="admin-bar">
+  <span>● Admin mode active</span>
+  <div>
+    <button onclick="openKnifeModal()">+ Knife</button>
+    <button onclick="openArticleModal()">+ Article</button>
+    <button onclick="openSiteTextModal()">Site text</button>
+    <button onclick="openInquiriesModal()">Inquiries (<span id="inquiry-count">0</span>)</button>
+    <button onclick="logoutAdmin()">Log out</button>
+  </div>
+</div>
+
+<nav>
+  <span class="nav-logo editable" data-edit="brandName" onclick="handleLogoClick(event)">Maker</span>
+  <ul class="nav-links">
+    <li><button onclick="showPage('products')" id="nav-products" class="active">Products</button></li>
+    <li><button onclick="showPage('information')" id="nav-information">Information</button></li>
+    <li><button onclick="showPage('contact')" id="nav-contact">Contact</button></li>
+  </ul>
+  <button class="nav-admin" onclick="openAdminLogin()" title="Admin">⚙</button>
+</nav>
+
+<main>
+  <section class="page active" id="page-products">
+    <p class="page-label" id="products-label">Selected work</p>
+    <h1 class="page-title editable" data-edit="productsTitle">Knives <em>in progress</em><br>and available.</h1>
+    <div class="filter-bar" id="filter-bar">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="Kitchen">Kitchen</button>
+      <button data-filter="Outdoor">Outdoor</button>
+    </div>
+    <div id="product-grid" class="product-grid"></div>
+    <div id="products-empty" class="empty-state" style="display:none;">No knives listed yet.</div>
+  </section>
+
+  <section class="page" id="page-information">
+    <p class="page-label" id="info-label">About</p>
+    <h1 class="page-title editable" data-edit="infoTitle">A few words<br>about the <em>maker</em>.</h1>
+    <div class="info-content editable" data-edit="infoBody" id="info-body"></div>
+
+    <div class="articles-section" id="articles-section" style="display:none;">
+      <p class="page-label" id="articles-label">Articles</p>
+      <h2 class="editable" data-edit="articlesTitle" style="font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:300; line-height:1.15; margin-bottom:0.5rem;">From <em>the workshop</em>.</h2>
+      <div class="articles-grid" id="articles-grid"></div>
+      <div id="articles-empty" class="empty-state" style="display:none; margin-top:2rem;">No articles yet.</div>
+    </div>
+  </section>
+
+  <section class="page" id="page-contact">
+    <p class="page-label" id="contact-label">Get in touch</p>
+    <h1 class="page-title editable" data-edit="contactTitle">Send <em>a message</em>.</h1>
+    <div class="contact-grid">
+      <div class="contact-details editable" data-edit="contactDetails" id="contact-details"></div>
+      <div>
+        <div class="form-row">
+          <label id="cf-name-label">Your name</label>
+          <input type="text" id="cf-name" placeholder="Jane Smith"/>
+        </div>
+        <div class="form-row">
+          <label id="cf-email-label">Email address</label>
+          <input type="email" id="cf-email" placeholder="jane@example.com"/>
+        </div>
+        <div class="form-row">
+          <label id="cf-knife-label">Knife of interest</label>
+          <select id="cf-knife"><option value="">Any / general inquiry</option></select>
+        </div>
+        <div class="form-row">
+          <label id="cf-message-label">Message</label>
+          <textarea id="cf-msg" placeholder="Blade length, handle preference, intended use…"></textarea>
+        </div>
+        <button class="btn" id="send-btn" onclick="sendInquiry()">Send inquiry</button>
+        <p id="contact-success" style="display:none; color:var(--accent); font-size:13px; margin-top:1rem;">✓ Inquiry sent. The maker will be in touch soon.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="detail-view" id="detail-view">
+    <button class="detail-back" id="detail-back-btn" onclick="closeDetail()">← Back to products</button>
+    <div class="detail-grid">
+      <div class="detail-img" id="detail-img-wrap">
+        <span class="product-img-placeholder">No image</span>
+      </div>
+      <div>
+        <span class="detail-status" id="detail-status">Available</span>
+        <h2 class="detail-name" id="detail-name">Knife name</h2>
+        <p class="detail-price" id="detail-price"></p>
+        <p class="detail-desc" id="detail-desc"></p>
+        <ul class="detail-specs" id="detail-specs"></ul>
+        <div style="margin-top:2rem;">
+          <button class="btn btn-accent" id="detail-inquire-btn" onclick="inquireAboutKnife()">Inquire about this knife</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Article detail view -->
+  <section class="article-view" id="article-view">
+    <button class="detail-back" id="article-back-btn" onclick="closeArticle()">← Back to information</button>
+    <div class="article-hero" id="article-hero">
+      <span class="article-card-img-placeholder">No cover image</span>
+    </div>
+    <h1 class="article-title" id="article-title">Article title</h1>
+    <p class="article-date" id="article-date"></p>
+    <div class="article-body" id="article-body"></div>
+  </section>
+</main>
+
+<footer>
+  <span id="footer-name">© 2026 Maker</span>
+  <span id="footer-location">Handcrafted with care</span>
+</footer>
+
+<!-- Admin login modal -->
+<div class="modal-backdrop" id="login-modal">
+  <div class="modal" style="max-width:400px;">
+    <button class="modal-close" onclick="closeModal('login-modal')">×</button>
+    <h2>Admin login</h2>
+    <div class="form-row">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+    <div class="form-row">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="tryLogin()" id="login-btn">Sign in</button>
+    </div>
+    <p style="font-size:12px; color:var(--muted); margin-top:1.5rem; line-height:1.6;">
+      Use the email and password you set up in your Supabase Authentication panel.
+    </p>
+  </div>
+</div>
+
+<!-- Knife modal -->
+<div class="modal-backdrop" id="knife-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('knife-modal')">×</button>
+    <h2 id="knife-modal-title">Add a knife</h2>
+    <input type="hidden" id="knife-id"/>
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="knife-name" placeholder="e.g. Gyuto 210mm"/>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Category</label>
+        <select id="knife-category">
+          <option>Kitchen</option>
+          <option>Outdoor</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Status</label>
+        <select id="knife-status">
+          <option value="available">Available</option>
+          <option value="made-to-order">Made to order</option>
+          <option value="sold">Sold</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Blade length</label>
+        <input type="text" id="knife-length" placeholder="e.g. 210mm"/>
+      </div>
+      <div class="form-row">
+        <label>Price (optional)</label>
+        <input type="text" id="knife-price" placeholder="e.g. $450"/>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Steel</label>
+        <input type="text" id="knife-steel" placeholder="e.g. VG-10"/>
+      </div>
+      <div class="form-row">
+        <label>Handle</label>
+        <input type="text" id="knife-handle" placeholder="e.g. Pakkawood"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Image URL (optional)</label>
+      <input type="text" id="knife-image" placeholder="https://… (paste image link)"/>
+    </div>
+    <div class="form-row">
+      <label>Description</label>
+      <textarea id="knife-description" placeholder="Tell the story of this knife…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveKnife()" id="save-knife-btn">Save</button>
+      <button class="btn" onclick="closeModal('knife-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-btn" onclick="deleteKnife()" style="display:none;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Text edit modal -->
+<div class="modal-backdrop" id="text-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('text-modal')">×</button>
+    <h2 id="text-modal-title">Edit text</h2>
+    <input type="hidden" id="text-edit-key"/>
+    <div class="form-row">
+      <label>Content</label>
+      <textarea id="text-edit-value" style="min-height:200px;"></textarea>
+      <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+        Tip: use <code>&lt;em&gt;word&lt;/em&gt;</code> for italics, <code>&lt;br&gt;</code> for line breaks, <code>&lt;p&gt;text&lt;/p&gt;</code> for paragraphs.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveText()">Save</button>
+      <button class="btn" onclick="closeModal('text-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Article modal -->
+<div class="modal-backdrop" id="article-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('article-modal')">×</button>
+    <h2 id="article-modal-title">Add an article</h2>
+    <input type="hidden" id="article-id"/>
+    <div class="form-row">
+      <label>Title</label>
+      <input type="text" id="article-title-input" placeholder="e.g. On choosing the right steel"/>
+    </div>
+    <div class="form-row">
+      <label>Cover image URL (optional)</label>
+      <input type="text" id="article-cover" placeholder="https://… (paste image link)"/>
+    </div>
+    <div class="form-row">
+      <label>Article content</label>
+      <textarea id="article-content" style="min-height:280px;" placeholder="Write your article here…"></textarea>
+      <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+        Use <code>&lt;p&gt;text&lt;/p&gt;</code> for paragraphs, <code>&lt;h2&gt;Heading&lt;/h2&gt;</code> or <code>&lt;h3&gt;</code> for sub-headings, <code>&lt;em&gt;</code> for italics, <code>&lt;strong&gt;</code> for bold, and <code>&lt;img src="..."&gt;</code> to embed images.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveArticle()" id="save-article-btn">Save</button>
+      <button class="btn" onclick="closeModal('article-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-article-btn" onclick="deleteArticle()" style="display:none;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Site Text modal -->
+<div class="modal-backdrop" id="site-text-modal">
+  <div class="modal" style="max-width:600px;">
+    <button class="modal-close" onclick="closeModal('site-text-modal')">×</button>
+    <h2>Site text</h2>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:2rem; line-height:1.6;">
+      Customize every label and button on your site. Leave a field blank to use the default text.
+    </p>
+    <div id="site-text-form"></div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveSiteText()" id="save-site-text-btn">Save all</button>
+      <button class="btn" onclick="closeModal('site-text-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Inquiries modal -->
+<div class="modal-backdrop" id="inquiries-modal">
+  <div class="modal" style="max-width:680px;">
+    <button class="modal-close" onclick="closeModal('inquiries-modal')">×</button>
+    <h2>Inquiries</h2>
+    <div id="inquiries-list"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('inquiries-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SUPABASE CONFIG — your project credentials
+   ============================================================ */
+const SUPABASE_URL = 'https://wzsvemzjethykiqgqxfu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nwrnhIM4FHV8dlf_xFz2mg_lBatEHZ7';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============================================================
+   DEFAULT CONTENT (shown only if database content is empty)
+   ============================================================ */
+const DEFAULTS = {
+  // Branding
+  brandName: 'Maker',
+  footerLocation: 'Handcrafted with care',
+
+  // Navigation
+  navProducts: 'Products',
+  navInformation: 'Information',
+  navContact: 'Contact',
+
+  // Products page
+  productsLabel: 'Selected work',
+  productsTitle: 'Knives <em>in progress</em><br>and available.',
+  filterAll: 'All',
+  filterKitchen: 'Kitchen',
+  filterOutdoor: 'Outdoor',
+  productsEmpty: 'No knives listed yet.',
+
+  // Status labels (shown on knife cards)
+  statusAvailable: 'Available',
+  statusSold: 'Sold',
+  statusMadeToOrder: 'Made to order',
+
+  // Information page
+  infoLabel: 'About',
+  infoTitle: 'A few words<br>about the <em>maker</em>.',
+  infoBody: `<p>Welcome. This is where you tell your story.</p>
+<p>Log in as admin and click any text on the site to edit it. Describe how you got into knife making, what draws you to Japanese kitchen knives and outdoor blades, your process, your workshop — whatever feels right.</p>
+<h3>The work</h3>
+<p>Talk about the steels you favor, the handles you make, how long a typical knife takes, anything that helps a future customer understand what they're getting.</p>
+<ul class="info-specs">
+  <li><span>Location</span><span>Your city, state</span></li>
+  <li><span>Steels used</span><span>VG-10, AUS-8, N690</span></li>
+  <li><span>Handle materials</span><span>Pakkawood, Micarta, G10</span></li>
+  <li><span>Lead time</span><span>6–10 weeks</span></li>
+  <li><span>Custom orders</span><span>Open</span></li>
+</ul>`,
+  articlesLabel: 'Articles',
+  articlesTitle: 'From <em>the workshop</em>.',
+  articlesEmpty: 'No articles yet.',
+
+  // Contact page
+  contactLabel: 'Get in touch',
+  contactTitle: 'Send <em>a message</em>.',
+  contactDetails: `<p>For commissions, questions about available pieces, or anything else — drop a line. I read every message and respond within a few days.</p>
+<div class="contact-line"><span>Email</span><span>you@example.com</span></div>
+<div class="contact-line"><span>Instagram</span><span>@yourhandle</span></div>
+<div class="contact-line"><span>Lead time</span><span>6–10 weeks</span></div>`,
+  cfNameLabel: 'Your name',
+  cfEmailLabel: 'Email address',
+  cfKnifeLabel: 'Knife of interest',
+  cfMessageLabel: 'Message',
+  cfSendButton: 'Send inquiry',
+  cfGenericOption: 'Any / general inquiry',
+  cfSuccessMessage: '✓ Inquiry sent. The maker will be in touch soon.',
+
+  // Detail view
+  detailBack: '← Back to products',
+  detailInquireButton: 'Inquire about this knife',
+  articleBack: '← Back to information'
+};
+
+// Keys that appear in the Site Text panel, grouped for organization
+const SITE_TEXT_GROUPS = [
+  { label: 'Branding', keys: ['brandName', 'footerLocation'] },
+  { label: 'Navigation', keys: ['navProducts', 'navInformation', 'navContact'] },
+  { label: 'Products page', keys: ['productsLabel', 'filterAll', 'filterKitchen', 'filterOutdoor', 'productsEmpty'] },
+  { label: 'Knife status labels', keys: ['statusAvailable', 'statusSold', 'statusMadeToOrder'] },
+  { label: 'Information page', keys: ['infoLabel', 'articlesLabel', 'articlesEmpty'] },
+  { label: 'Contact page', keys: ['contactLabel', 'cfNameLabel', 'cfEmailLabel', 'cfKnifeLabel', 'cfMessageLabel', 'cfSendButton', 'cfGenericOption', 'cfSuccessMessage'] },
+  { label: 'Detail views', keys: ['detailBack', 'detailInquireButton', 'articleBack'] }
+];
+
+let state = {
+  knives: [],
+  articles: [],
+  text: {},
+  inquiries: [],
+  currentFilter: 'all',
+  currentDetailId: null,
+  currentArticleId: null,
+  session: null
+};
+
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function loadKnives() {
+  const { data, error } = await sb.from('knives').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load knives:', error); toast('Could not load knives', true); return; }
+  state.knives = data || [];
+}
+
+async function loadArticles() {
+  const { data, error } = await sb.from('articles').select('*').order('created_at', { ascending: false });
+  if (error) {
+    // Table may not exist yet — fail silently and treat as no articles
+    console.warn('Could not load articles (run the SQL setup if you want this feature):', error.message);
+    state.articles = [];
+    return;
+  }
+  state.articles = data || [];
+}
+
+async function loadContent() {
+  const { data, error } = await sb.from('site_content').select('*');
+  if (error) { console.error('Failed to load content:', error); return; }
+  state.text = {};
+  (data || []).forEach(row => { state.text[row.key] = row.value; });
+}
+
+async function loadInquiries() {
+  if (!state.session) return;
+  const { data, error } = await sb.from('inquiries').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load inquiries:', error); return; }
+  state.inquiries = data || [];
+  document.getElementById('inquiry-count').textContent = state.inquiries.length;
+}
+
+async function initialLoad() {
+  await Promise.all([loadKnives(), loadArticles(), loadContent()]);
+  renderAll();
+  document.getElementById('loading').classList.add('hidden');
+}
+
+async function checkSession() {
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  if (state.session) {
+    document.body.classList.add('admin-mode');
+    await loadInquiries();
+  }
+}
+
+async function tryLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { toast('Please enter email and password', true); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false;
+  btn.textContent = 'Sign in';
+
+  if (error) { toast('Login failed: ' + error.message, true); return; }
+
+  state.session = data.session;
+  document.body.classList.add('admin-mode');
+  closeModal('login-modal');
+  await loadInquiries();
+  toast('Welcome back');
+}
+
+async function logoutAdmin() {
+  await sb.auth.signOut();
+  state.session = null;
+  document.body.classList.remove('admin-mode');
+  toast('Logged out');
+}
+
+function openAdminLogin() {
+  if (state.session) { toast('Already logged in'); return; }
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  openModal('login-modal');
+  setTimeout(() => document.getElementById('login-email').focus(), 100);
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+function getText(key) {
+  return state.text[key] !== undefined ? state.text[key] : DEFAULTS[key];
+}
+
+function renderAll() {
+  const brand = getText('brandName');
+  const footerLocation = getText('footerLocation');
+
+  // Branding
+  document.querySelector('.nav-logo').textContent = brand;
+  document.getElementById('footer-name').textContent = '© ' + new Date().getFullYear() + ' ' + brand;
+  document.getElementById('footer-location').textContent = footerLocation;
+  document.title = brand;
+
+  // Navigation
+  document.getElementById('nav-products').textContent = getText('navProducts');
+  document.getElementById('nav-information').textContent = getText('navInformation');
+  document.getElementById('nav-contact').textContent = getText('navContact');
+
+  // Page labels
+  setIfExists('products-label', getText('productsLabel'));
+  setIfExists('info-label', getText('infoLabel'));
+  setIfExists('contact-label', getText('contactLabel'));
+  setIfExists('articles-label', getText('articlesLabel'));
+
+  // Filter buttons
+  const filterButtons = document.querySelectorAll('#filter-bar button');
+  if (filterButtons[0]) filterButtons[0].textContent = getText('filterAll');
+  if (filterButtons[1]) filterButtons[1].textContent = getText('filterKitchen');
+  if (filterButtons[2]) filterButtons[2].textContent = getText('filterOutdoor');
+
+  // Empty states
+  document.getElementById('products-empty').textContent = getText('productsEmpty');
+  document.getElementById('articles-empty').textContent = getText('articlesEmpty');
+
+  // Contact form labels
+  setIfExists('cf-name-label', getText('cfNameLabel'));
+  setIfExists('cf-email-label', getText('cfEmailLabel'));
+  setIfExists('cf-knife-label', getText('cfKnifeLabel'));
+  setIfExists('cf-message-label', getText('cfMessageLabel'));
+
+  // Contact form button + success
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn && !sendBtn.disabled) sendBtn.textContent = getText('cfSendButton');
+  document.getElementById('contact-success').textContent = getText('cfSuccessMessage');
+
+  // Detail view buttons
+  setIfExists('detail-back-btn', getText('detailBack'));
+  setIfExists('detail-inquire-btn', getText('detailInquireButton'));
+  setIfExists('article-back-btn', getText('articleBack'));
+
+  // Click-to-edit content blocks
+  document.querySelectorAll('[data-edit]').forEach(el => {
+    el.innerHTML = getText(el.dataset.edit);
+  });
+
+  renderProducts();
+  renderArticles();
+  renderContactSelect();
+}
+
+function setIfExists(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function renderArticles() {
+  const section = document.getElementById('articles-section');
+  const grid = document.getElementById('articles-grid');
+  const empty = document.getElementById('articles-empty');
+
+  // Show the articles section if there are articles OR if admin (so they can add the first one)
+  const showSection = state.articles.length > 0 || state.session;
+  section.style.display = showSection ? 'block' : 'none';
+
+  if (state.articles.length === 0) {
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    empty.style.display = state.session ? 'block' : 'none';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = state.articles.map(a => `
+    <div class="article-card" onclick="showArticle('${a.id}')">
+      <div class="admin-controls" onclick="event.stopPropagation()">
+        <button onclick="editArticle('${a.id}')">Edit</button>
+        <button class="delete" onclick="confirmDeleteArticle('${a.id}')">Delete</button>
+      </div>
+      <div class="article-card-img">
+        ${a.cover_image
+          ? `<img src="${escapeHTML(a.cover_image)}" alt="${escapeHTML(a.title)}" onerror="this.outerHTML='<span class=\\'article-card-img-placeholder\\'>No cover image</span>'"/>`
+          : '<span class="article-card-img-placeholder">No cover image</span>'}
+      </div>
+      <p class="article-card-title">${escapeHTML(a.title)}</p>
+      <p class="article-card-date">${new Date(a.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+  `).join('');
+}
+
+function showArticle(id) {
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  state.currentArticleId = id;
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('article-view').classList.add('active');
+
+  const hero = document.getElementById('article-hero');
+  if (a.cover_image) {
+    hero.innerHTML = `<img src="${escapeHTML(a.cover_image)}" alt="${escapeHTML(a.title)}" onerror="this.outerHTML='<span class=\\'article-card-img-placeholder\\'>No cover image</span>'"/>`;
+  } else {
+    hero.innerHTML = '<span class="article-card-img-placeholder">No cover image</span>';
+  }
+
+  document.getElementById('article-title').textContent = a.title;
+  document.getElementById('article-date').textContent = new Date(a.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  document.getElementById('article-body').innerHTML = a.content || '<p style="color:var(--muted)">This article has no content yet.</p>';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeArticle() {
+  document.getElementById('article-view').classList.remove('active');
+  state.currentArticleId = null;
+  showPage('information');
+}
+
+function openArticleModal(id) {
+  document.getElementById('article-modal-title').textContent = id ? 'Edit article' : 'Add an article';
+  document.getElementById('delete-article-btn').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('article-id').value = id || '';
+
+  const a = id ? state.articles.find(x => x.id === id) : null;
+  document.getElementById('article-title-input').value = a?.title || '';
+  document.getElementById('article-cover').value = a?.cover_image || '';
+  document.getElementById('article-content').value = a?.content || '';
+
+  openModal('article-modal');
+}
+
+function editArticle(id) { openArticleModal(id); }
+
+async function saveArticle() {
+  const existingId = document.getElementById('article-id').value;
+  const title = document.getElementById('article-title-input').value.trim();
+  if (!title) { toast('Please add a title', true); return; }
+
+  const article = {
+    id: existingId || ('a-' + Date.now()),
+    title,
+    cover_image: document.getElementById('article-cover').value.trim() || null,
+    content: document.getElementById('article-content').value.trim() || null
+  };
+
+  const btn = document.getElementById('save-article-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('articles').upsert(article);
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  closeModal('article-modal');
+  await loadArticles();
+  renderAll();
+  toast(existingId ? 'Article updated' : 'Article added');
+}
+
+async function confirmDeleteArticle(id) {
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`Delete "${a.title}"? This can't be undone.`)) return;
+
+  const { error } = await sb.from('articles').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+
+  await loadArticles();
+  renderAll();
+  toast('Article deleted');
+}
+
+async function deleteArticle() {
+  const id = document.getElementById('article-id').value;
+  if (!id) return;
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`Delete "${a.title}"? This can't be undone.`)) return;
+
+  const { error } = await sb.from('articles').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+
+  closeModal('article-modal');
+  await loadArticles();
+  renderAll();
+  toast('Article deleted');
+}
+
+/* ============================================================
+   SITE TEXT PANEL
+   ============================================================ */
+function openSiteTextModal() {
+  const form = document.getElementById('site-text-form');
+  form.innerHTML = SITE_TEXT_GROUPS.map(group => `
+    <div class="text-group">
+      <p class="text-group-label">${group.label}</p>
+      ${group.keys.map(key => {
+        const value = state.text[key] !== undefined ? state.text[key] : DEFAULTS[key];
+        const isLong = (DEFAULTS[key] || '').length > 60;
+        return `
+          <div class="form-row">
+            <label>${humanizeKey(key)}</label>
+            ${isLong
+              ? `<textarea data-key="${key}" style="min-height:60px;">${escapeHTML(value)}</textarea>`
+              : `<input type="text" data-key="${key}" value="${escapeHTML(value)}"/>`}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
+  openModal('site-text-modal');
+}
+
+function humanizeKey(key) {
+  const labels = {
+    brandName: 'Your name / brand (shown in nav and footer)',
+    footerLocation: 'Footer tagline (right side)',
+    navProducts: 'Nav link: Products',
+    navInformation: 'Nav link: Information',
+    navContact: 'Nav link: Contact',
+    productsLabel: 'Products page: top label',
+    filterAll: 'Filter: All',
+    filterKitchen: 'Filter: Kitchen',
+    filterOutdoor: 'Filter: Outdoor',
+    productsEmpty: 'Empty state (no knives listed)',
+    statusAvailable: 'Status label: Available',
+    statusSold: 'Status label: Sold',
+    statusMadeToOrder: 'Status label: Made to order',
+    infoLabel: 'Information page: top label',
+    articlesLabel: 'Articles section: top label',
+    articlesEmpty: 'Empty state (no articles)',
+    contactLabel: 'Contact page: top label',
+    cfNameLabel: 'Name field label',
+    cfEmailLabel: 'Email field label',
+    cfKnifeLabel: 'Knife dropdown label',
+    cfMessageLabel: 'Message field label',
+    cfSendButton: 'Send button text',
+    cfGenericOption: 'Dropdown first option',
+    cfSuccessMessage: 'Confirmation after submitting',
+    detailBack: 'Knife detail: back button',
+    detailInquireButton: 'Knife detail: inquire button',
+    articleBack: 'Article detail: back button'
+  };
+  return labels[key] || key;
+}
+
+async function saveSiteText() {
+  const inputs = document.querySelectorAll('#site-text-form [data-key]');
+  const updates = [];
+
+  inputs.forEach(input => {
+    const key = input.dataset.key;
+    const value = input.value;
+    updates.push({ key, value });
+    state.text[key] = value;
+  });
+
+  const btn = document.getElementById('save-site-text-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('site_content').upsert(updates);
+
+  btn.disabled = false;
+  btn.textContent = 'Save all';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  closeModal('site-text-modal');
+  renderAll();
+  toast('Site text updated');
+}
+
+/* ============================================================
+   NAV LOGO CLICK (edit in admin, navigate otherwise)
+   ============================================================ */
+function handleLogoClick(event) {
+  if (state.session) {
+    event.stopPropagation();
+    openTextEditor('brandName');
+  } else {
+    showPage('products');
+  }
+}
+
+function renderProducts() {
+  const grid = document.getElementById('product-grid');
+  const empty = document.getElementById('products-empty');
+  const filter = state.currentFilter;
+
+  let knives = state.knives;
+  if (filter !== 'all') knives = knives.filter(k => k.category === filter);
+
+  if (knives.length === 0) {
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = knives.map(k => `
+    <div class="product-card" onclick="showDetail('${k.id}')">
+      <div class="admin-controls" onclick="event.stopPropagation()">
+        <button onclick="editKnife('${k.id}')">Edit</button>
+        <button class="delete" onclick="confirmDeleteKnife('${k.id}')">Delete</button>
+      </div>
+      <div class="product-img">
+        ${k.image ? `<img src="${escapeHTML(k.image)}" alt="${escapeHTML(k.name)}" onerror="this.outerHTML='<span class=\\'product-img-placeholder\\'>No image</span>'"/>` : '<span class="product-img-placeholder">No image</span>'}
+      </div>
+      <div class="product-info">
+        <p class="product-name">${escapeHTML(k.name)}</p>
+        <p class="product-meta">${escapeHTML(k.steel || '')}${k.steel && k.handle ? ' · ' : ''}${escapeHTML(k.handle || '')}${k.length ? ' · ' + escapeHTML(k.length) : ''}</p>
+      </div>
+      <div class="product-footer">
+        <span class="product-price">${escapeHTML(k.price || '')}</span>
+        <span class="product-tag ${k.status}">${formatStatus(k.status)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderContactSelect() {
+  const sel = document.getElementById('cf-knife');
+  sel.innerHTML = `<option value="">${escapeHTML(getText('cfGenericOption'))}</option>` +
+    state.knives.map(k => `<option value="${escapeHTML(k.name)}">${escapeHTML(k.name)}</option>`).join('');
+}
+
+function formatStatus(s) {
+  return ({
+    available: getText('statusAvailable'),
+    'made-to-order': getText('statusMadeToOrder'),
+    sold: getText('statusSold')
+  })[s] || s;
+}
+
+function escapeHTML(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function showPage(name) {
+  closeDetail();
+  document.getElementById('article-view').classList.remove('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + name).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showDetail(id) {
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  state.currentDetailId = id;
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('detail-view').classList.add('active');
+
+  document.getElementById('detail-name').textContent = k.name;
+  document.getElementById('detail-status').textContent = formatStatus(k.status);
+  document.getElementById('detail-status').className = 'detail-status ' + k.status;
+  document.getElementById('detail-price').textContent = k.price || '';
+  document.getElementById('detail-desc').textContent = k.description || '';
+
+  const specs = [];
+  if (k.category) specs.push(['Category', k.category]);
+  if (k.length) specs.push(['Blade length', k.length]);
+  if (k.steel) specs.push(['Steel', k.steel]);
+  if (k.handle) specs.push(['Handle', k.handle]);
+  specs.push(['Status', formatStatus(k.status)]);
+
+  document.getElementById('detail-specs').innerHTML = specs.map(([key, val]) =>
+    `<li><span>${escapeHTML(key)}</span><span>${escapeHTML(val)}</span></li>`
+  ).join('');
+
+  const imgWrap = document.getElementById('detail-img-wrap');
+  if (k.image) {
+    imgWrap.innerHTML = `<img src="${escapeHTML(k.image)}" alt="${escapeHTML(k.name)}" onerror="this.outerHTML='<span class=\\'product-img-placeholder\\'>No image</span>'"/>`;
+  } else {
+    imgWrap.innerHTML = '<span class="product-img-placeholder">No image</span>';
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('active');
+  state.currentDetailId = null;
+}
+
+function inquireAboutKnife() {
+  const k = state.knives.find(x => x.id === state.currentDetailId);
+  showPage('contact');
+  if (k) {
+    setTimeout(() => {
+      const sel = document.getElementById('cf-knife');
+      for (let opt of sel.options) {
+        if (opt.value === k.name) { sel.value = k.name; break; }
+      }
+      document.getElementById('cf-name').focus();
+    }, 200);
+  }
+}
+
+document.getElementById('filter-bar').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#filter-bar button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.currentFilter = e.target.dataset.filter;
+  renderProducts();
+});
+
+function openKnifeModal(id) {
+  document.getElementById('knife-modal-title').textContent = id ? 'Edit knife' : 'Add a knife';
+  document.getElementById('delete-btn').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('knife-id').value = id || '';
+
+  const k = id ? state.knives.find(x => x.id === id) : null;
+  document.getElementById('knife-name').value = k?.name || '';
+  document.getElementById('knife-category').value = k?.category || 'Kitchen';
+  document.getElementById('knife-status').value = k?.status || 'available';
+  document.getElementById('knife-length').value = k?.length || '';
+  document.getElementById('knife-price').value = k?.price || '';
+  document.getElementById('knife-steel').value = k?.steel || '';
+  document.getElementById('knife-handle').value = k?.handle || '';
+  document.getElementById('knife-image').value = k?.image || '';
+  document.getElementById('knife-description').value = k?.description || '';
+
+  openModal('knife-modal');
+}
+
+function editKnife(id) { openKnifeModal(id); }
+
+async function saveKnife() {
+  const existingId = document.getElementById('knife-id').value;
+  const name = document.getElementById('knife-name').value.trim();
+  if (!name) { toast('Please add a name', true); return; }
+
+  const knife = {
+    id: existingId || ('k-' + Date.now()),
+    name,
+    category: document.getElementById('knife-category').value,
+    status: document.getElementById('knife-status').value,
+    length: document.getElementById('knife-length').value.trim() || null,
+    price: document.getElementById('knife-price').value.trim() || null,
+    steel: document.getElementById('knife-steel').value.trim() || null,
+    handle: document.getElementById('knife-handle').value.trim() || null,
+    image: document.getElementById('knife-image').value.trim() || null,
+    description: document.getElementById('knife-description').value.trim() || null
+  };
+
+  const btn = document.getElementById('save-knife-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('knives').upsert(knife);
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  closeModal('knife-modal');
+  await loadKnives();
+  renderAll();
+  toast(existingId ? 'Knife updated' : 'Knife added');
+}
+
+async function confirmDeleteKnife(id) {
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  if (!confirm(`Delete "${k.name}"? This can't be undone.`)) return;
+
+  const { error } = await sb.from('knives').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+
+  await loadKnives();
+  renderAll();
+  toast('Knife deleted');
+}
+
+async function deleteKnife() {
+  const id = document.getElementById('knife-id').value;
+  if (!id) return;
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  if (!confirm(`Delete "${k.name}"? This can't be undone.`)) return;
+
+  const { error } = await sb.from('knives').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+
+  closeModal('knife-modal');
+  await loadKnives();
+  renderAll();
+  toast('Knife deleted');
+}
+
+document.querySelectorAll('[data-edit]').forEach(el => {
+  el.addEventListener('click', e => {
+    if (!state.session) return;
+    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+    e.stopPropagation();
+    openTextEditor(el.dataset.edit);
+  });
+});
+
+function openTextEditor(key) {
+  const labels = {
+    productsTitle: 'Products page title',
+    infoTitle: 'Information page title',
+    infoBody: 'Information page content',
+    contactTitle: 'Contact page title',
+    contactDetails: 'Contact details'
+  };
+  document.getElementById('text-modal-title').textContent = 'Edit: ' + (labels[key] || key);
+  document.getElementById('text-edit-key').value = key;
+  document.getElementById('text-edit-value').value = getText(key);
+  openModal('text-modal');
+}
+
+async function saveText() {
+  const key = document.getElementById('text-edit-key').value;
+  const value = document.getElementById('text-edit-value').value;
+
+  const { error } = await sb.from('site_content').upsert({ key, value });
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  state.text[key] = value;
+  closeModal('text-modal');
+  renderAll();
+  toast('Saved');
+}
+
+async function sendInquiry() {
+  const name = document.getElementById('cf-name').value.trim();
+  const email = document.getElementById('cf-email').value.trim();
+  const knife = document.getElementById('cf-knife').value;
+  const message = document.getElementById('cf-msg').value.trim();
+
+  if (!name || !email) { toast('Please add your name and email', true); return; }
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { error } = await sb.from('inquiries').insert({
+    id: 'i-' + Date.now(),
+    name, email,
+    knife: knife || null,
+    message: message || null
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Send inquiry';
+
+  if (error) { toast('Could not send: ' + error.message, true); return; }
+
+  document.getElementById('cf-name').value = '';
+  document.getElementById('cf-email').value = '';
+  document.getElementById('cf-knife').value = '';
+  document.getElementById('cf-msg').value = '';
+
+  const success = document.getElementById('contact-success');
+  success.style.display = 'block';
+  setTimeout(() => success.style.display = 'none', 6000);
+}
+
+async function openInquiriesModal() {
+  await loadInquiries();
+  const list = document.getElementById('inquiries-list');
+  if (state.inquiries.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted); font-size:14px; text-align:center; padding:2rem 0;">No inquiries yet.</p>';
+  } else {
+    list.innerHTML = state.inquiries.map(i => `
+      <div class="inquiry-item">
+        <div class="inquiry-meta">
+          <span class="inquiry-name">${escapeHTML(i.name)}</span>
+          <span>${new Date(i.created_at).toLocaleDateString()}</span>
+        </div>
+        <div style="font-size:13px;"><a href="mailto:${escapeHTML(i.email)}">${escapeHTML(i.email)}</a>${i.knife ? ' · interested in ' + escapeHTML(i.knife) : ''}</div>
+        ${i.message ? `<div class="inquiry-msg">${escapeHTML(i.message)}</div>` : ''}
+        <div style="margin-top: 0.75rem;">
+          <button class="btn" style="font-size:10px; padding:0.3rem 0.8rem;" onclick="deleteInquiry('${i.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  openModal('inquiries-modal');
+}
+
+async function deleteInquiry(id) {
+  if (!confirm('Delete this inquiry?')) return;
+  const { error } = await sb.from('inquiries').delete().eq('id', id);
+  if (error) { toast('Could not delete', true); return; }
+  await loadInquiries();
+  openInquiriesModal();
+  toast('Inquiry deleted');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => {
+    if (e.target === bd) bd.classList.remove('open');
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+(async function init() {
+  await checkSession();
+  await initialLoad();
+})();
+</script>
+
+</body>
+</html>
