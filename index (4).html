@@ -1,0 +1,3808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knife Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Crimson+Pro:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=EB+Garamond:wght@400;500&family=IBM+Plex+Mono:wght@300;400&family=Inter:wght@300;400;500&family=Lora:wght@400;500&family=Playfair+Display:wght@400;500&family=Source+Sans+3:wght@300;400;500&family=Space+Grotesk:wght@300;400;500&family=Work+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Quill rich text editor -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+
+<!-- KaTeX for LaTeX rendering -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    /* Colors */
+    --ink: #1a1a18;
+    --muted: #888780;
+    --rule: rgba(0,0,0,0.1);
+    --rule-strong: rgba(0,0,0,0.25);
+    --bg: #faf9f6;
+    --card-bg: #f3f1ec;
+    --accent: #3B6D11;
+    --danger: #A32D2D;
+
+    /* Typography */
+    --font-heading: 'Cormorant Garamond', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --base-font-size: 15px;
+
+    /* Layout */
+    --card-min-width: 280px;
+    --card-img-height: 180px;
+    --slideshow-height: 480px;
+    --page-max-width: 1200px;
+    --section-padding-y: 5rem;
+    --section-padding-x: 3rem;
+    --border-radius: 0px;
+    --card-aspect-ratio: auto;
+  }
+
+  html, body {
+    font-family: var(--font-body);
+    font-weight: 300;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: var(--base-font-size);
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.3s;
+  }
+
+  #loading.hidden { opacity: 0; pointer-events: none; }
+
+  .loader {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* ---------- Nav ---------- */
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 3rem;
+    border-bottom: 0.5px solid var(--rule);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .nav-logo {
+    font-family: var(--font-heading);
+    font-weight: 300;
+    font-size: 1.4rem;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+
+  .nav-links button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0.5rem 0;
+    transition: color 0.2s;
+    position: relative;
+  }
+
+  .nav-links button.active { color: var(--ink); }
+  .nav-links button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0.5px;
+    background: var(--ink);
+  }
+  .nav-links button:hover { color: var(--ink); }
+
+  .nav-admin {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0.5rem;
+    font-size: 14px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+  .nav-admin:hover { opacity: 1; }
+
+  main { min-height: calc(100vh - 80px); }
+
+  .page {
+    display: none;
+    padding: var(--section-padding-y) var(--section-padding-x);
+    max-width: var(--page-max-width);
+    margin: 0 auto;
+  }
+
+  .page.active { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .page-label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .page-title {
+    font-family: var(--font-heading);
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    font-weight: 300;
+    line-height: 1.1;
+    margin-bottom: 3rem;
+    color: var(--ink);
+  }
+
+  .page-title em { font-style: italic; color: var(--accent); }
+
+  .empty-state {
+    border: 0.5px dashed var(--rule-strong);
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+
+  .filter-bar button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.25rem 0;
+  }
+
+  .filter-bar button.active {
+    color: var(--ink);
+    border-bottom: 0.5px solid var(--ink);
+  }
+
+  /* Pill-style filter buttons */
+  body.filter-pills .filter-bar {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  body.filter-pills .filter-bar button {
+    padding: 0.4rem 1rem;
+    border: 0.5px solid var(--rule-strong);
+    border-radius: 999px;
+    transition: all 0.2s;
+  }
+
+  body.filter-pills .filter-bar button.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
+  /* Card variant: no dividers */
+  body.cards-no-divider .product-grid {
+    background: transparent;
+    border: none;
+    gap: 1.5rem;
+  }
+
+  body.cards-no-divider .product-card {
+    border: 0.5px solid var(--rule);
+    border-radius: var(--border-radius);
+  }
+
+  /* Card aspect ratios */
+  body.card-aspect-square .product-img {
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  body.card-aspect-landscape .product-img {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  body.card-aspect-portrait .product-img {
+    height: auto;
+    aspect-ratio: 3 / 4;
+  }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width), 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 0.5px solid var(--rule);
+    border-radius: var(--border-radius);
+  }
+
+  .product-card {
+    background: var(--bg);
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .product-card:hover { background: var(--card-bg); }
+
+  .product-img {
+    height: var(--card-img-height);
+    background: var(--card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    border-radius: var(--border-radius);
+  }
+
+  .product-img img { width: 100%; height: 100%; object-fit: cover; }
+  .product-img-placeholder { color: var(--muted); opacity: 0.4; font-size: 13px; }
+  .product-img-count {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+  .video-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(0,0,0,0.15);
+  }
+  .video-overlay svg { width: 40px; height: 40px; color: white; filter: drop-shadow(0 0 4px rgba(0,0,0,0.4)); }
+
+  .product-info { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .product-name {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .product-meta {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 0.5px solid var(--rule);
+  }
+
+  .product-price { font-size: 13px; font-weight: 500; }
+
+  .product-tag {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 0.5px solid var(--rule-strong);
+    color: var(--muted);
+  }
+
+  .product-tag.available { color: var(--accent); border-color: var(--accent); }
+  .product-tag.sold { color: var(--muted); opacity: 0.6; }
+  .product-tag.made-to-order { color: var(--ink); }
+
+  .admin-controls {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: none;
+    gap: 4px;
+    z-index: 2;
+  }
+
+  body.admin-mode .admin-controls { display: flex; }
+
+  .admin-controls button {
+    background: var(--bg);
+    border: 0.5px solid var(--rule-strong);
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+
+  .admin-controls button:hover { background: var(--ink); color: var(--bg); }
+  .admin-controls button.delete:hover { background: var(--danger); border-color: var(--danger); color: white; }
+
+  /* ---------- Rendered rich content ---------- */
+  .rich-content {
+    color: var(--ink);
+    line-height: 1.9;
+    font-weight: 300;
+  }
+
+  .rich-content p { margin-bottom: 1.2rem; }
+  .rich-content p:last-child { margin-bottom: 0; }
+
+  .rich-content h1, .rich-content h2, .rich-content h3 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    margin: 2rem 0 1rem;
+    line-height: 1.2;
+  }
+
+  .rich-content h1 { font-size: 2rem; }
+  .rich-content h2 { font-size: 1.6rem; }
+  .rich-content h3 { font-size: 1.3rem; }
+
+  .rich-content em, .rich-content i { font-style: italic; }
+  .rich-content strong, .rich-content b { font-weight: 500; }
+  .rich-content u { text-decoration: underline; }
+
+  .rich-content ul, .rich-content ol {
+    margin: 0 0 1.2rem 1.5rem;
+  }
+
+  .rich-content li { margin-bottom: 0.4rem; }
+
+  .rich-content a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 0.5px;
+    text-underline-offset: 3px;
+  }
+
+  .rich-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 1.5rem 0;
+    display: block;
+  }
+
+  .rich-content .ql-align-center { text-align: center; }
+  .rich-content .ql-align-right { text-align: right; }
+  .rich-content .ql-align-justify { text-align: justify; }
+
+  .rich-content .ql-size-small { font-size: 0.75em; }
+  .rich-content .ql-size-large { font-size: 1.5em; }
+  .rich-content .ql-size-huge { font-size: 2.5em; }
+
+  .rich-content blockquote {
+    border-left: 2px solid var(--accent);
+    padding-left: 1rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+    color: var(--muted);
+  }
+
+  /* YouTube embeds rendered inside rich content */
+  .rich-content .embed-youtube {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    margin: 1.5rem 0;
+    background: var(--card-bg);
+  }
+
+  .rich-content .embed-youtube iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  /* LaTeX rendering inline */
+  .rich-content .katex { font-size: 1.05em; }
+  .rich-content .katex-display { margin: 1.5rem 0; }
+
+  /* ---------- Info content ---------- */
+  .info-content { max-width: 720px; }
+
+  .info-content .info-specs {
+    list-style: none;
+    border-top: 0.5px solid var(--rule);
+    margin-top: 2rem;
+  }
+
+  .info-content .info-specs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 14px;
+  }
+
+  .info-content .info-specs li span:first-child { color: var(--muted); }
+
+  /* ---------- Contact page ---------- */
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    max-width: 900px;
+  }
+
+  .contact-details .contact-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 13px;
+  }
+
+  .contact-details .contact-line:first-of-type { border-top: 0.5px solid var(--rule); }
+
+  .contact-details .contact-line span:first-child {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+  }
+
+  .form-row { margin-bottom: 1.25rem; }
+  .form-row label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .form-row input,
+  .form-row select,
+  .form-row textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 0.5px solid var(--rule-strong);
+    padding: 0.5rem 0;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+
+  .form-row select option { background: var(--bg); }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-bottom-color: var(--ink); }
+  .form-row textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    display: inline-block;
+    padding: 0.75rem 1.8rem;
+    border: 0.5px solid var(--ink);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.2s, color 0.2s;
+    font-family: var(--font-body);
+    font-weight: 300;
+    border-radius: var(--border-radius);
+  }
+
+  .btn:hover { background: var(--ink); color: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-accent { border-color: var(--accent); color: var(--accent); }
+  .btn-accent:hover { background: var(--accent); color: var(--bg); }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: white; }
+
+  /* ---------- Admin bar ---------- */
+  .admin-bar {
+    display: none;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.75rem 3rem;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  body.admin-mode .admin-bar { display: flex; }
+
+  .admin-bar button {
+    background: transparent;
+    border: 0.5px solid rgba(255,255,255,0.4);
+    color: var(--bg);
+    padding: 0.4rem 1rem;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    margin-left: 0.5rem;
+  }
+
+  .admin-bar button:hover { background: rgba(255,255,255,0.15); }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    backdrop-filter: blur(2px);
+    overflow-y: auto;
+  }
+
+  .modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+
+  .modal {
+    background: var(--bg);
+    border-radius: 4px;
+    max-width: 720px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2.5rem;
+    position: relative;
+    margin: auto;
+  }
+
+  .modal.modal-narrow { max-width: 540px; }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    z-index: 5;
+  }
+
+  .modal h2 {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    font-weight: 300;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- Detail view ---------- */
+  .detail-view {
+    display: none;
+    padding: 4rem 3rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .detail-view.active { display: block; animation: fadeIn 0.4s ease; }
+
+  .detail-back {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    padding: 0.5rem 0;
+  }
+
+  .detail-back:hover { color: var(--ink); }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 4rem;
+  }
+
+  /* ---------- Slideshow ---------- */
+  .slideshow {
+    background: var(--card-bg);
+    position: relative;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .slideshow-main {
+    height: var(--slideshow-height);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slideshow-slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .slideshow-slide.active { opacity: 1; }
+
+  .slideshow-slide img { width: 100%; height: 100%; object-fit: cover; }
+  .slideshow-slide iframe { width: 100%; height: 100%; border: 0; }
+
+  .slideshow-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--ink);
+    z-index: 3;
+    transition: background 0.2s;
+  }
+
+  .slideshow-arrow:hover { background: white; }
+  .slideshow-arrow.prev { left: 12px; }
+  .slideshow-arrow.next { right: 12px; }
+  .slideshow-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .slideshow-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 1rem;
+  }
+
+  .slideshow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--rule-strong);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s;
+  }
+
+  .slideshow-dot.active { background: var(--ink); }
+
+  .slideshow-counter {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    z-index: 3;
+  }
+
+  .slideshow-placeholder {
+    height: var(--slideshow-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    opacity: 0.4;
+  }
+
+  .detail-name {
+    font-family: var(--font-heading);
+    font-size: 2.4rem;
+    font-weight: 300;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+
+  .detail-status {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 0.5px solid var(--rule-strong);
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .detail-status.available { color: var(--accent); border-color: var(--accent); }
+  .detail-price { font-size: 1.2rem; margin-bottom: 2rem; font-weight: 400; }
+
+  .detail-desc {
+    color: var(--ink);
+    margin-bottom: 2rem;
+  }
+
+  .detail-specs { list-style: none; border-top: 0.5px solid var(--rule); }
+
+  .detail-specs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border-bottom: 0.5px solid var(--rule);
+    font-size: 13px;
+  }
+
+  .detail-specs li span:first-child {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+  }
+
+  /* ---------- Articles ---------- */
+  .articles-section {
+    margin-top: 5rem;
+    padding-top: 3rem;
+    border-top: 0.5px solid var(--rule);
+  }
+
+  .articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+
+  .article-card {
+    cursor: pointer;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+
+  .article-card:hover { opacity: 0.85; }
+
+  .article-card-img {
+    height: 200px;
+    background: var(--card-bg);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .article-card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .article-card-img-placeholder { color: var(--muted); opacity: 0.4; font-size: 13px; }
+
+  .article-card-title {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+  }
+
+  .article-card-date {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .article-view {
+    display: none;
+    padding: 4rem 3rem;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .article-view.active { display: block; animation: fadeIn 0.4s ease; }
+
+  .article-hero {
+    width: 100%;
+    height: 420px;
+    background: var(--card-bg);
+    overflow: hidden;
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .article-hero img { width: 100%; height: 100%; object-fit: cover; }
+
+  .article-title {
+    font-family: var(--font-heading);
+    font-size: clamp(2.2rem, 4.5vw, 3rem);
+    font-weight: 300;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .article-date {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+
+  /* ---------- Media manager (in modals) ---------- */
+  .media-manager { margin-bottom: 1.5rem; }
+
+  .media-dropzone {
+    border: 1.5px dashed var(--rule-strong);
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+  }
+
+  .media-dropzone:hover, .media-dropzone.dragover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(59, 109, 17, 0.04);
+  }
+
+  .media-dropzone input[type="file"] { display: none; }
+
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .media-item {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--card-bg);
+    overflow: hidden;
+    cursor: move;
+    border: 1px solid var(--rule);
+  }
+
+  .media-item.dragging { opacity: 0.4; }
+
+  .media-item img, .media-item iframe {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .media-item-video {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .media-item-video img { object-fit: cover; opacity: 0.7; }
+  .media-item-video-icon {
+    position: absolute;
+    color: white;
+    font-size: 24px;
+    pointer-events: none;
+  }
+
+  .media-item-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255,255,255,0.95);
+    border: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--danger);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .media-item-order {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  .media-add-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .media-add-row input {
+    flex: 1;
+    background: transparent;
+    border: 0.5px solid var(--rule-strong);
+    padding: 0.5rem 0.75rem;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 13px;
+    border-radius: 2px;
+  }
+
+  .media-add-row button {
+    background: transparent;
+    border: 0.5px solid var(--ink);
+    padding: 0.5rem 1rem;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+
+  /* ---------- Quill customization ---------- */
+  .quill-container {
+    background: var(--bg);
+    border: 0.5px solid var(--rule-strong);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+
+  .quill-container .ql-toolbar.ql-snow {
+    border: none;
+    border-bottom: 0.5px solid var(--rule);
+    padding: 0.5rem;
+    font-family: var(--font-body);
+  }
+
+  .quill-container .ql-container.ql-snow {
+    border: none;
+    font-family: var(--font-body);
+    font-size: 15px;
+    min-height: 220px;
+  }
+
+  .quill-container .ql-editor {
+    min-height: 220px;
+    line-height: 1.7;
+  }
+
+  .quill-container .ql-editor h1,
+  .quill-container .ql-editor h2,
+  .quill-container .ql-editor h3 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+  }
+
+  /* Custom Quill toolbar buttons */
+  .ql-snow .ql-formula-custom::before {
+    content: 'Σ';
+    font-style: italic;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .ql-snow .ql-youtube::before {
+    content: '▶';
+    font-size: 12px;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 0.5px solid var(--rule);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4rem;
+  }
+
+  /* ---------- Editable hover state ---------- */
+  .editable { position: relative; }
+
+  body.admin-mode .editable:hover {
+    outline: 1px dashed var(--accent);
+    outline-offset: 8px;
+    cursor: pointer;
+  }
+
+  body.admin-mode .editable::after {
+    content: '✎ edit';
+    display: none;
+    position: absolute;
+    top: -28px;
+    right: 0;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: var(--font-body);
+    font-weight: 300;
+  }
+
+  body.admin-mode .editable:hover::after { display: block; }
+
+  /* ---------- Inquiries / forms ---------- */
+  .inquiry-item {
+    border: 0.5px solid var(--rule);
+    padding: 1.25rem;
+    margin-bottom: 0.75rem;
+    background: var(--card-bg);
+  }
+
+  .inquiry-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .inquiry-name { font-weight: 500; color: var(--ink); }
+  .inquiry-msg { font-size: 14px; white-space: pre-wrap; margin-top: 0.5rem; line-height: 1.7; }
+
+  /* Site text groups */
+  .text-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 0.5px solid var(--rule);
+  }
+  .text-group:last-of-type { border-bottom: none; }
+  .text-group-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .text-group .form-row { margin-bottom: 0.85rem; }
+  .text-group .form-row label { font-size: 10px; }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.error { background: var(--danger); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { gap: 1rem; }
+    .nav-links button { font-size: 10px; }
+    .page, .detail-view, .article-view { padding: 3rem 1.5rem; }
+    .contact-grid, .detail-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .slideshow-main { height: 320px; }
+    .slideshow-placeholder { height: 320px; }
+    .article-hero { height: 240px; margin-bottom: 2rem; }
+    footer { padding: 1.5rem; flex-direction: column; gap: 0.5rem; }
+    .admin-bar { padding: 0.75rem 1.5rem; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+    .modal { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="loader">Loading…</div></div>
+
+<div class="admin-bar">
+  <span>● Admin mode active</span>
+  <div>
+    <button onclick="openKnifeModal()">+ Knife</button>
+    <button onclick="openArticleModal()">+ Article</button>
+    <button onclick="openSiteTextModal()">Site text</button>
+    <button onclick="openDesignModal()">Design</button>
+    <button onclick="openInquiriesModal()">Inquiries (<span id="inquiry-count">0</span>)</button>
+    <button onclick="logoutAdmin()">Log out</button>
+  </div>
+</div>
+
+<nav>
+  <span class="nav-logo editable" data-edit="brandName" onclick="handleLogoClick(event)">Maker</span>
+  <ul class="nav-links">
+    <li><button onclick="showPage('products')" id="nav-products" class="active">Products</button></li>
+    <li><button onclick="showPage('information')" id="nav-information">Information</button></li>
+    <li><button onclick="showPage('contact')" id="nav-contact">Contact</button></li>
+  </ul>
+  <button class="nav-admin" onclick="openAdminLogin()" title="Admin">⚙</button>
+</nav>
+
+<main>
+  <section class="page active" id="page-products">
+    <p class="page-label" id="products-label">Selected work</p>
+    <h1 class="page-title editable" data-edit="productsTitle">Knives <em>in progress</em><br>and available.</h1>
+    <div class="filter-bar" id="filter-bar">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="Kitchen">Kitchen</button>
+      <button data-filter="Outdoor">Outdoor</button>
+    </div>
+    <div id="product-grid" class="product-grid"></div>
+    <div id="products-empty" class="empty-state" style="display:none;">No knives listed yet.</div>
+  </section>
+
+  <section class="page" id="page-information">
+    <p class="page-label" id="info-label">About</p>
+    <h1 class="page-title editable" data-edit="infoTitle">A few words<br>about the <em>maker</em>.</h1>
+    <div class="info-content rich-content editable" data-edit="infoBody" data-rich="true" id="info-body"></div>
+
+    <div class="articles-section" id="articles-section" style="display:none;">
+      <p class="page-label" id="articles-label">Articles</p>
+      <h2 class="editable" data-edit="articlesTitle" style="font-family:var(--font-heading); font-size:2rem; font-weight:300; line-height:1.15; margin-bottom:0.5rem;">From <em>the workshop</em>.</h2>
+      <div class="articles-grid" id="articles-grid"></div>
+      <div id="articles-empty" class="empty-state" style="display:none; margin-top:2rem;">No articles yet.</div>
+    </div>
+  </section>
+
+  <section class="page" id="page-contact">
+    <p class="page-label" id="contact-label">Get in touch</p>
+    <h1 class="page-title editable" data-edit="contactTitle">Send <em>a message</em>.</h1>
+    <div class="contact-grid">
+      <div class="contact-details rich-content editable" data-edit="contactDetails" data-rich="true" id="contact-details"></div>
+      <div>
+        <div class="form-row">
+          <label id="cf-name-label">Your name</label>
+          <input type="text" id="cf-name" placeholder="Jane Smith"/>
+        </div>
+        <div class="form-row">
+          <label id="cf-email-label">Email address</label>
+          <input type="email" id="cf-email" placeholder="jane@example.com"/>
+        </div>
+        <div class="form-row">
+          <label id="cf-knife-label">Knife of interest</label>
+          <select id="cf-knife"><option value="">Any / general inquiry</option></select>
+        </div>
+        <div class="form-row">
+          <label id="cf-message-label">Message</label>
+          <textarea id="cf-msg" placeholder="Blade length, handle preference, intended use…"></textarea>
+        </div>
+        <button class="btn" id="send-btn" onclick="sendInquiry()">Send inquiry</button>
+        <p id="contact-success" style="display:none; color:var(--accent); font-size:13px; margin-top:1rem;">✓ Inquiry sent. The maker will be in touch soon.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="detail-view" id="detail-view">
+    <button class="detail-back" id="detail-back-btn" onclick="closeDetail()">← Back to products</button>
+    <div class="detail-grid">
+      <div id="detail-media-wrap"></div>
+      <div>
+        <span class="detail-status" id="detail-status">Available</span>
+        <h2 class="detail-name" id="detail-name">Knife name</h2>
+        <p class="detail-price" id="detail-price"></p>
+        <div class="detail-desc rich-content" id="detail-desc"></div>
+        <ul class="detail-specs" id="detail-specs"></ul>
+        <div style="margin-top:2rem;">
+          <button class="btn btn-accent" id="detail-inquire-btn" onclick="inquireAboutKnife()">Inquire about this knife</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="article-view" id="article-view">
+    <button class="detail-back" id="article-back-btn" onclick="closeArticle()">← Back to information</button>
+    <div class="article-hero" id="article-hero">
+      <span class="article-card-img-placeholder">No cover image</span>
+    </div>
+    <h1 class="article-title" id="article-title">Article title</h1>
+    <p class="article-date" id="article-date"></p>
+    <div class="rich-content" id="article-body"></div>
+  </section>
+</main>
+
+<footer>
+  <span id="footer-name">© 2026 Maker</span>
+  <span id="footer-location">Handcrafted with care</span>
+</footer>
+
+<!-- Admin login modal -->
+<div class="modal-backdrop" id="login-modal">
+  <div class="modal modal-narrow" style="max-width:400px;">
+    <button class="modal-close" onclick="closeModal('login-modal')">×</button>
+    <h2>Admin login</h2>
+    <div class="form-row">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+    <div class="form-row">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="tryLogin()" id="login-btn">Sign in</button>
+    </div>
+    <p style="font-size:12px; color:var(--muted); margin-top:1.5rem; line-height:1.6;">
+      Use the email and password you set up in your Supabase Authentication panel.
+    </p>
+  </div>
+</div>
+
+<!-- Knife modal -->
+<div class="modal-backdrop" id="knife-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('knife-modal')">×</button>
+    <h2 id="knife-modal-title">Add a knife</h2>
+    <input type="hidden" id="knife-id"/>
+
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="knife-name" placeholder="e.g. Gyuto 210mm"/>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Category</label>
+        <select id="knife-category">
+          <option>Kitchen</option>
+          <option>Outdoor</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Status</label>
+        <select id="knife-status">
+          <option value="available">Available</option>
+          <option value="made-to-order">Made to order</option>
+          <option value="sold">Sold</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Blade length</label>
+        <input type="text" id="knife-length" placeholder="e.g. 210mm"/>
+      </div>
+      <div class="form-row">
+        <label>Price (optional)</label>
+        <input type="text" id="knife-price" placeholder="e.g. $450"/>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-row">
+        <label>Steel</label>
+        <input type="text" id="knife-steel" placeholder="e.g. VG-10"/>
+      </div>
+      <div class="form-row">
+        <label>Handle</label>
+        <input type="text" id="knife-handle" placeholder="e.g. Pakkawood"/>
+      </div>
+    </div>
+
+    <!-- Media manager: photos + YouTube -->
+    <div class="form-row">
+      <label>Photos & videos (drag to reorder)</label>
+      <div class="media-manager" id="knife-media-manager"></div>
+    </div>
+
+    <div class="form-row">
+      <label>Description</label>
+      <div id="knife-description-editor" class="quill-container"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveKnife()" id="save-knife-btn">Save</button>
+      <button class="btn" onclick="closeModal('knife-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-btn" onclick="deleteKnife()" style="display:none;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Article modal -->
+<div class="modal-backdrop" id="article-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('article-modal')">×</button>
+    <h2 id="article-modal-title">Add an article</h2>
+    <input type="hidden" id="article-id"/>
+    <div class="form-row">
+      <label>Title</label>
+      <input type="text" id="article-title-input" placeholder="e.g. On choosing the right steel"/>
+    </div>
+    <div class="form-row">
+      <label>Cover image</label>
+      <div class="media-manager" id="article-cover-manager"></div>
+    </div>
+    <div class="form-row">
+      <label>Article content</label>
+      <div id="article-content-editor" class="quill-container"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveArticle()" id="save-article-btn">Save</button>
+      <button class="btn" onclick="closeModal('article-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-article-btn" onclick="deleteArticle()" style="display:none;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rich text edit modal (for editing inline content like infoBody, contactDetails) -->
+<div class="modal-backdrop" id="rich-text-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('rich-text-modal')">×</button>
+    <h2 id="rich-text-modal-title">Edit content</h2>
+    <input type="hidden" id="rich-text-key"/>
+    <div class="form-row">
+      <div id="rich-text-editor" class="quill-container"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveRichText()">Save</button>
+      <button class="btn" onclick="closeModal('rich-text-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plain text edit modal (for editable titles like productsTitle that should stay simple) -->
+<div class="modal-backdrop" id="text-modal">
+  <div class="modal modal-narrow">
+    <button class="modal-close" onclick="closeModal('text-modal')">×</button>
+    <h2 id="text-modal-title">Edit text</h2>
+    <input type="hidden" id="text-edit-key"/>
+    <div class="form-row">
+      <label>Content</label>
+      <textarea id="text-edit-value" style="min-height:120px;"></textarea>
+      <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+        Use <code>&lt;em&gt;word&lt;/em&gt;</code> for italics, <code>&lt;br&gt;</code> for line breaks.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveText()">Save</button>
+      <button class="btn" onclick="closeModal('text-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Site Text modal -->
+<div class="modal-backdrop" id="site-text-modal">
+  <div class="modal" style="max-width:600px;">
+    <button class="modal-close" onclick="closeModal('site-text-modal')">×</button>
+    <h2>Site text</h2>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:2rem; line-height:1.6;">
+      Customize every label and button on your site.
+    </p>
+    <div id="site-text-form"></div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveSiteText()" id="save-site-text-btn">Save all</button>
+      <button class="btn" onclick="closeModal('site-text-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Design settings modal -->
+<div class="modal-backdrop" id="design-modal">
+  <div class="modal" style="max-width:680px;">
+    <button class="modal-close" onclick="closeModal('design-modal')">×</button>
+    <h2>Design</h2>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:1.5rem; line-height:1.6;">
+      Changes preview live. Click Save to publish them, or Cancel to discard.
+    </p>
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:1rem; margin-bottom:2rem; border-bottom:0.5px solid var(--rule); padding-bottom:0.5rem; flex-wrap:wrap;">
+      <button type="button" class="design-tab active" data-tab="palette" onclick="switchDesignTab(event)">Palette</button>
+      <button type="button" class="design-tab" data-tab="typography" onclick="switchDesignTab(event)">Typography</button>
+      <button type="button" class="design-tab" data-tab="layout" onclick="switchDesignTab(event)">Layout</button>
+      <button type="button" class="design-tab" data-tab="cards" onclick="switchDesignTab(event)">Cards</button>
+      <button type="button" class="design-tab" data-tab="background" onclick="switchDesignTab(event)">Background</button>
+    </div>
+
+    <!-- Palette tab -->
+    <div class="design-tab-panel active" id="design-panel-palette">
+      <p class="text-group-label" style="margin-bottom:0.75rem;">Choose a palette</p>
+      <div id="palette-options" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:0.75rem; margin-bottom:2rem;"></div>
+
+      <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:0.5px solid var(--rule);">
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:13px;">
+          <input type="checkbox" id="design-advanced-toggle" onchange="toggleAdvancedColors()"/>
+          Advanced — pick custom colors
+        </label>
+      </div>
+
+      <div id="advanced-colors" style="display:none; margin-top:1.5rem;">
+        <div class="form-row">
+          <label>Background color</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-bg" onchange="previewDesign()"/>
+            <input type="text" id="dc-bg-text" oninput="syncColorInput('dc-bg', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Text color</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-ink" onchange="previewDesign()"/>
+            <input type="text" id="dc-ink-text" oninput="syncColorInput('dc-ink', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Accent color (highlights, italic emphasis)</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-accent" onchange="previewDesign()"/>
+            <input type="text" id="dc-accent-text" oninput="syncColorInput('dc-accent', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Card background</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-card-bg" onchange="previewDesign()"/>
+            <input type="text" id="dc-card-bg-text" oninput="syncColorInput('dc-card-bg', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Muted text (captions, labels)</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-muted" onchange="previewDesign()"/>
+            <input type="text" id="dc-muted-text" oninput="syncColorInput('dc-muted', this)" style="flex:1;"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography tab -->
+    <div class="design-tab-panel" id="design-panel-typography" style="display:none;">
+      <div class="form-row">
+        <label>Heading font</label>
+        <select id="dc-font-heading" onchange="previewDesign()">
+          <option value="'Cormorant Garamond', serif">Cormorant Garamond (default — refined serif)</option>
+          <option value="'Playfair Display', serif">Playfair Display (high contrast serif)</option>
+          <option value="'EB Garamond', serif">EB Garamond (classic book serif)</option>
+          <option value="'Cardo', serif">Cardo (warm transitional)</option>
+          <option value="'DM Serif Display', serif">DM Serif Display (bold modern serif)</option>
+          <option value="'Inter', sans-serif">Inter (clean sans)</option>
+          <option value="'DM Sans', sans-serif">DM Sans (matches body)</option>
+          <option value="'Space Grotesk', sans-serif">Space Grotesk (geometric sans)</option>
+          <option value="'IBM Plex Mono', monospace">IBM Plex Mono (typewriter)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Body font</label>
+        <select id="dc-font-body" onchange="previewDesign()">
+          <option value="'DM Sans', sans-serif">DM Sans (default — clean modern sans)</option>
+          <option value="'Inter', sans-serif">Inter (very readable sans)</option>
+          <option value="'Work Sans', sans-serif">Work Sans (warm sans)</option>
+          <option value="'Source Sans 3', sans-serif">Source Sans (technical sans)</option>
+          <option value="'Lora', serif">Lora (readable serif)</option>
+          <option value="'Crimson Pro', serif">Crimson Pro (book serif)</option>
+          <option value="'IBM Plex Mono', monospace">IBM Plex Mono (monospace)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Base text size: <span id="dc-base-size-display">15px</span></label>
+        <input type="range" id="dc-base-size" min="13" max="19" step="1" oninput="document.getElementById('dc-base-size-display').textContent = this.value + 'px'; previewDesign();"/>
+      </div>
+    </div>
+
+    <!-- Layout tab -->
+    <div class="design-tab-panel" id="design-panel-layout" style="display:none;">
+      <div class="form-row">
+        <label>Page width: <span id="dc-page-width-display">1200px</span></label>
+        <input type="range" id="dc-page-width" min="900" max="1600" step="50" oninput="document.getElementById('dc-page-width-display').textContent = this.value + 'px'; previewDesign();"/>
+      </div>
+      <div class="form-row">
+        <label>Section vertical spacing: <span id="dc-section-y-display">5rem</span></label>
+        <input type="range" id="dc-section-y" min="2" max="8" step="0.5" oninput="document.getElementById('dc-section-y-display').textContent = this.value + 'rem'; previewDesign();"/>
+      </div>
+      <div class="form-row">
+        <label>Slideshow image height: <span id="dc-slideshow-height-display">480px</span></label>
+        <input type="range" id="dc-slideshow-height" min="320" max="700" step="20" oninput="document.getElementById('dc-slideshow-height-display').textContent = this.value + 'px'; previewDesign();"/>
+      </div>
+      <div class="form-row">
+        <label>Corner roundness: <span id="dc-radius-display">0px</span></label>
+        <input type="range" id="dc-radius" min="0" max="20" step="1" oninput="document.getElementById('dc-radius-display').textContent = this.value + 'px'; previewDesign();"/>
+      </div>
+    </div>
+
+    <!-- Cards tab -->
+    <div class="design-tab-panel" id="design-panel-cards" style="display:none;">
+      <div class="form-row">
+        <label>Knife card size</label>
+        <select id="dc-card-size" onchange="previewDesign()">
+          <option value="small">Small (more columns, denser)</option>
+          <option value="medium" selected>Medium (default)</option>
+          <option value="large">Large (fewer columns, prominent)</option>
+          <option value="xlarge">Extra large</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Card image aspect ratio</label>
+        <select id="dc-card-aspect" onchange="previewDesign()">
+          <option value="">Fixed height (default)</option>
+          <option value="square">Square (1:1)</option>
+          <option value="landscape">Landscape (4:3)</option>
+          <option value="portrait">Portrait (3:4)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Card divider style</label>
+        <select id="dc-card-divider" onchange="previewDesign()">
+          <option value="">Tight grid with dividers (default)</option>
+          <option value="cards-no-divider">Separated cards with spacing</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Filter bar style</label>
+        <select id="dc-filter-style" onchange="previewDesign()">
+          <option value="">Text underline (default)</option>
+          <option value="filter-pills">Pill buttons</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Background tab -->
+    <div class="design-tab-panel" id="design-panel-background" style="display:none;">
+      <div class="form-row">
+        <label>Background pattern</label>
+        <select id="dc-bg-pattern" onchange="previewDesign()">
+          <option value="">None (solid color)</option>
+          <option value="topo">Topographic lines</option>
+        </select>
+      </div>
+
+      <div id="topo-controls" style="display:none;">
+        <div class="form-row">
+          <label>Line color</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-topo-line" onchange="previewDesign()"/>
+            <input type="text" id="dc-topo-line-text" oninput="syncColorInput('dc-topo-line', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Pattern background color (match site bg to blend in)</label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="color" id="dc-topo-bg" onchange="previewDesign()"/>
+            <input type="text" id="dc-topo-bg-text" oninput="syncColorInput('dc-topo-bg', this)" style="flex:1;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Opacity: <span id="dc-topo-opacity-display">0.18</span></label>
+          <input type="range" id="dc-topo-opacity" min="0.04" max="0.6" step="0.02" oninput="document.getElementById('dc-topo-opacity-display').textContent = (+this.value).toFixed(2); previewDesign();"/>
+        </div>
+        <div class="form-row">
+          <label>Line density: <span id="dc-topo-density-display">12</span></label>
+          <input type="range" id="dc-topo-density" min="5" max="22" step="1" oninput="document.getElementById('dc-topo-density-display').textContent = this.value; previewDesign();"/>
+        </div>
+        <div class="form-row">
+          <label>Scale (tile size): <span id="dc-topo-scale-display">600px</span></label>
+          <input type="range" id="dc-topo-scale" min="320" max="1000" step="40" oninput="document.getElementById('dc-topo-scale-display').textContent = this.value + 'px'; previewDesign();"/>
+        </div>
+        <div class="form-row">
+          <label>Line thickness: <span id="dc-topo-thickness-display">1.0</span></label>
+          <input type="range" id="dc-topo-thickness" min="0.5" max="2.5" step="0.1" oninput="document.getElementById('dc-topo-thickness-display').textContent = (+this.value).toFixed(1); previewDesign();"/>
+        </div>
+        <div style="margin-top:1rem;">
+          <button type="button" class="btn" onclick="regenerateTopo()">↻ Roll new pattern</button>
+          <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+            Each roll generates a fresh layout of contour lines. Click until you find one you like.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="saveDesign()" id="save-design-btn">Save</button>
+      <button class="btn" onclick="cancelDesign()">Cancel</button>
+      <button class="btn btn-danger" onclick="resetDesign()" style="margin-left:auto;">Reset to default</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .design-tab {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    border-bottom: 0.5px solid transparent;
+    margin-bottom: -0.5rem;
+  }
+  .design-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .design-tab:hover { color: var(--ink); }
+
+  .palette-option {
+    border: 0.5px solid var(--rule-strong);
+    border-radius: 4px;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    background: var(--bg);
+  }
+  .palette-option:hover { transform: translateY(-1px); }
+  .palette-option.active { border-color: var(--accent); border-width: 1.5px; padding: calc(0.75rem - 0.5px); }
+  .palette-swatches {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0.5rem;
+    height: 32px;
+  }
+  .palette-swatch {
+    flex: 1;
+    border-radius: 2px;
+    border: 0.5px solid rgba(0,0,0,0.1);
+  }
+  .palette-name {
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  input[type="color"] {
+    width: 40px;
+    height: 32px;
+    padding: 0;
+    border: 0.5px solid var(--rule-strong);
+    border-radius: 2px;
+    cursor: pointer;
+    background: transparent;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+</style>
+
+<!-- Inquiries modal -->
+<div class="modal-backdrop" id="inquiries-modal">
+  <div class="modal" style="max-width:680px;">
+    <button class="modal-close" onclick="closeModal('inquiries-modal')">×</button>
+    <h2>Inquiries</h2>
+    <div id="inquiries-list"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('inquiries-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- LaTeX prompt modal -->
+<div class="modal-backdrop" id="latex-modal">
+  <div class="modal modal-narrow">
+    <button class="modal-close" onclick="closeModal('latex-modal')">×</button>
+    <h2>Insert math equation</h2>
+    <div class="form-row">
+      <label>LaTeX</label>
+      <input type="text" id="latex-input" placeholder="e.g. E = mc^2  or  \frac{a}{b}"/>
+      <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+        Type a LaTeX expression. Example: <code>x^2 + y^2 = r^2</code>, <code>\sqrt{a^2 + b^2}</code>, <code>\frac{1}{2}</code>
+      </p>
+    </div>
+    <div class="form-row">
+      <label>Preview</label>
+      <div id="latex-preview" style="padding:1rem; background:var(--card-bg); min-height:50px; border-radius:4px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="insertLatex()">Insert</button>
+      <button class="btn" onclick="closeModal('latex-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- YouTube prompt modal -->
+<div class="modal-backdrop" id="youtube-modal">
+  <div class="modal modal-narrow">
+    <button class="modal-close" onclick="closeModal('youtube-modal')">×</button>
+    <h2>Embed YouTube video</h2>
+    <div class="form-row">
+      <label>YouTube URL or video ID</label>
+      <input type="text" id="youtube-input" placeholder="https://youtube.com/watch?v=..."/>
+      <p style="font-size:11px; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+        Paste any YouTube URL (watch, shorts, youtu.be) or just the video ID.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="insertYoutube()">Insert</button>
+      <button class="btn" onclick="closeModal('youtube-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const SUPABASE_URL = 'https://wzsvemzjethykiqgqxfu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nwrnhIM4FHV8dlf_xFz2mg_lBatEHZ7';
+const STORAGE_BUCKET = 'knife-images';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============================================================
+   DEFAULT CONTENT
+   ============================================================ */
+const DEFAULTS = {
+  brandName: 'Maker',
+  footerLocation: 'Handcrafted with care',
+  navProducts: 'Products',
+  navInformation: 'Information',
+  navContact: 'Contact',
+  productsLabel: 'Selected work',
+  productsTitle: 'Knives <em>in progress</em><br>and available.',
+  filterAll: 'All',
+  filterKitchen: 'Kitchen',
+  filterOutdoor: 'Outdoor',
+  productsEmpty: 'No knives listed yet.',
+  statusAvailable: 'Available',
+  statusSold: 'Sold',
+  statusMadeToOrder: 'Made to order',
+  infoLabel: 'About',
+  infoTitle: 'A few words<br>about the <em>maker</em>.',
+  infoBody: `<p>Welcome. This is where you tell your story.</p>
+<p>Log in as admin and click any text on the site to edit it. Describe how you got into knife making, what draws you to Japanese kitchen knives and outdoor blades, your process, your workshop — whatever feels right.</p>
+<h3>The work</h3>
+<p>Talk about the steels you favor, the handles you make, how long a typical knife takes, anything that helps a future customer understand what they're getting.</p>
+<ul class="info-specs">
+  <li><span>Location</span><span>Your city, state</span></li>
+  <li><span>Steels used</span><span>VG-10, AUS-8, N690</span></li>
+  <li><span>Handle materials</span><span>Pakkawood, Micarta, G10</span></li>
+  <li><span>Lead time</span><span>6–10 weeks</span></li>
+  <li><span>Custom orders</span><span>Open</span></li>
+</ul>`,
+  articlesLabel: 'Articles',
+  articlesTitle: 'From <em>the workshop</em>.',
+  articlesEmpty: 'No articles yet.',
+  contactLabel: 'Get in touch',
+  contactTitle: 'Send <em>a message</em>.',
+  contactDetails: `<p>For commissions, questions about available pieces, or anything else — drop a line. I read every message and respond within a few days.</p>
+<div class="contact-line"><span>Email</span><span>you@example.com</span></div>
+<div class="contact-line"><span>Instagram</span><span>@yourhandle</span></div>
+<div class="contact-line"><span>Lead time</span><span>6–10 weeks</span></div>`,
+  cfNameLabel: 'Your name',
+  cfEmailLabel: 'Email address',
+  cfKnifeLabel: 'Knife of interest',
+  cfMessageLabel: 'Message',
+  cfSendButton: 'Send inquiry',
+  cfGenericOption: 'Any / general inquiry',
+  cfSuccessMessage: '✓ Inquiry sent. The maker will be in touch soon.',
+  detailBack: '← Back to products',
+  detailInquireButton: 'Inquire about this knife',
+  articleBack: '← Back to information'
+};
+
+const SITE_TEXT_GROUPS = [
+  { label: 'Branding', keys: ['brandName', 'footerLocation'] },
+  { label: 'Navigation', keys: ['navProducts', 'navInformation', 'navContact'] },
+  { label: 'Products page', keys: ['productsLabel', 'filterAll', 'filterKitchen', 'filterOutdoor', 'productsEmpty'] },
+  { label: 'Knife status labels', keys: ['statusAvailable', 'statusSold', 'statusMadeToOrder'] },
+  { label: 'Information page', keys: ['infoLabel', 'articlesLabel', 'articlesEmpty'] },
+  { label: 'Contact page', keys: ['contactLabel', 'cfNameLabel', 'cfEmailLabel', 'cfKnifeLabel', 'cfMessageLabel', 'cfSendButton', 'cfGenericOption', 'cfSuccessMessage'] },
+  { label: 'Detail views', keys: ['detailBack', 'detailInquireButton', 'articleBack'] }
+];
+
+/* ============================================================
+   DESIGN SYSTEM
+   ============================================================ */
+const DESIGN_DEFAULTS = {
+  // Palette colors
+  ink: '#1a1a18',
+  muted: '#888780',
+  bg: '#faf9f6',
+  cardBg: '#f3f1ec',
+  accent: '#3B6D11',
+  // Typography
+  fontHeading: "'Cormorant Garamond', serif",
+  fontBody: "'DM Sans', sans-serif",
+  baseFontSize: '15',
+  // Layout
+  pageWidth: '1200',
+  sectionPaddingY: '5',
+  slideshowHeight: '480',
+  borderRadius: '0',
+  // Cards
+  cardSize: 'medium',
+  cardAspect: '',
+  cardDivider: '',
+  filterStyle: '',
+  // Background pattern
+  bgPattern: '',           // '' or 'topo'
+  topoLine: '#3B6D11',     // line color
+  topoBg: '#faf9f6',       // pattern background (usually match site bg)
+  topoOpacity: '0.18',
+  topoDensity: '12',
+  topoScale: '600',
+  topoThickness: '1.0',
+  topoSeed: '1234'         // changes when "roll" is clicked
+};
+
+const CARD_SIZE_PRESETS = {
+  small:  { minWidth: '220px', imgHeight: '140px' },
+  medium: { minWidth: '280px', imgHeight: '180px' },
+  large:  { minWidth: '360px', imgHeight: '240px' },
+  xlarge: { minWidth: '460px', imgHeight: '300px' }
+};
+
+const PALETTES = [
+  {
+    id: 'default',
+    name: 'Original',
+    ink: '#1a1a18', muted: '#888780', bg: '#faf9f6', cardBg: '#f3f1ec', accent: '#3B6D11'
+  },
+  {
+    id: 'cream',
+    name: 'Cream',
+    ink: '#2a2520', muted: '#9a8f7e', bg: '#f8f1e4', cardBg: '#efe6d3', accent: '#a8632b'
+  },
+  {
+    id: 'stone',
+    name: 'Stone',
+    ink: '#2b2b2b', muted: '#7d7d7d', bg: '#e9e9e6', cardBg: '#dcdcd7', accent: '#5b6b5c'
+  },
+  {
+    id: 'paper',
+    name: 'Paper',
+    ink: '#222', muted: '#888', bg: '#ffffff', cardBg: '#f4f4f4', accent: '#000000'
+  },
+  {
+    id: 'forest',
+    name: 'Forest',
+    ink: '#1c2a1c', muted: '#7a8a7a', bg: '#f4f6f1', cardBg: '#e6ebde', accent: '#2d5a2d'
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    ink: '#1a2530', muted: '#7a8a98', bg: '#f3f6f8', cardBg: '#e2eaef', accent: '#1f5775'
+  },
+  {
+    id: 'rust',
+    name: 'Rust',
+    ink: '#2b1a14', muted: '#9a8478', bg: '#fbf4ee', cardBg: '#f0e4d8', accent: '#a04525'
+  },
+  {
+    id: 'graphite',
+    name: 'Graphite',
+    ink: '#e8e6e0', muted: '#9a9890', bg: '#1f1f1d', cardBg: '#2b2b28', accent: '#a8c060'
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight',
+    ink: '#e8e8ed', muted: '#888896', bg: '#161821', cardBg: '#22242e', accent: '#7a9be0'
+  },
+  {
+    id: 'mono-dark',
+    name: 'Mono dark',
+    ink: '#ffffff', muted: '#888888', bg: '#0d0d0d', cardBg: '#1a1a1a', accent: '#ffffff'
+  }
+];
+
+let designState = {
+  palette: 'default',
+  custom: false,
+  ...DESIGN_DEFAULTS
+};
+let designStateBackup = null; // for cancel
+
+let state = {
+  knives: [],
+  articles: [],
+  text: {},
+  inquiries: [],
+  currentFilter: 'all',
+  currentDetailId: null,
+  currentArticleId: null,
+  currentSlide: 0,
+  session: null
+};
+
+// Quill editor instances (lazily created)
+let knifeEditor = null;
+let articleEditor = null;
+let richTextEditor = null;
+
+// In-modal media state (separate per modal)
+let knifeMediaItems = [];      // for knife modal
+let articleCoverItem = null;   // for article cover (single image)
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* ============================================================
+   YOUTUBE HELPERS
+   ============================================================ */
+function extractYoutubeId(input) {
+  if (!input) return null;
+  input = input.trim();
+  // If it's already just an ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+  // Try various URL patterns
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /v=([a-zA-Z0-9_-]{11})/
+  ];
+  for (let p of patterns) {
+    const m = input.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function youtubeThumb(id) {
+  return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+}
+
+/* ============================================================
+   DATA LOADING
+   ============================================================ */
+async function loadKnives() {
+  const { data, error } = await sb.from('knives').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load knives:', error); toast('Could not load knives', true); return; }
+  state.knives = data || [];
+}
+
+async function loadArticles() {
+  const { data, error } = await sb.from('articles').select('*').order('created_at', { ascending: false });
+  if (error) {
+    console.warn('Could not load articles:', error.message);
+    state.articles = [];
+    return;
+  }
+  state.articles = data || [];
+}
+
+async function loadContent() {
+  const { data, error } = await sb.from('site_content').select('*');
+  if (error) { console.error('Failed to load content:', error); return; }
+  state.text = {};
+  (data || []).forEach(row => { state.text[row.key] = row.value; });
+}
+
+async function loadInquiries() {
+  if (!state.session) return;
+  const { data, error } = await sb.from('inquiries').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load inquiries:', error); return; }
+  state.inquiries = data || [];
+  document.getElementById('inquiry-count').textContent = state.inquiries.length;
+}
+
+async function initialLoad() {
+  await Promise.all([loadKnives(), loadArticles(), loadContent()]);
+  loadDesignFromSiteContent();
+  renderAll();
+  document.getElementById('loading').classList.add('hidden');
+}
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+async function checkSession() {
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  if (state.session) {
+    document.body.classList.add('admin-mode');
+    await loadInquiries();
+  }
+}
+
+async function tryLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { toast('Please enter email and password', true); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false;
+  btn.textContent = 'Sign in';
+
+  if (error) { toast('Login failed: ' + error.message, true); return; }
+
+  state.session = data.session;
+  document.body.classList.add('admin-mode');
+  closeModal('login-modal');
+  await loadInquiries();
+  renderAll();
+  toast('Welcome back');
+}
+
+async function logoutAdmin() {
+  await sb.auth.signOut();
+  state.session = null;
+  document.body.classList.remove('admin-mode');
+  renderAll();
+  toast('Logged out');
+}
+
+function openAdminLogin() {
+  if (state.session) { toast('Already logged in'); return; }
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  openModal('login-modal');
+  setTimeout(() => document.getElementById('login-email').focus(), 100);
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+/* ============================================================
+   IMAGE UPLOAD TO SUPABASE STORAGE
+   ============================================================ */
+async function uploadImage(file) {
+  // Validate
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Not an image file');
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('Image is larger than 10MB');
+  }
+
+  // Generate unique filename
+  const ext = file.name.split('.').pop().toLowerCase();
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { data, error } = await sb.storage
+    .from(STORAGE_BUCKET)
+    .upload(filename, file, { cacheControl: '3600', upsert: false });
+
+  if (error) throw error;
+
+  const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
+  return urlData.publicUrl;
+}
+
+async function uploadImageFromUrl(url) {
+  // Used when someone pastes a URL — just store as-is (it's already hosted)
+  return url;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function getText(key) {
+  return state.text[key] !== undefined ? state.text[key] : DEFAULTS[key];
+}
+
+function renderAll() {
+  const brand = getText('brandName');
+  const footerLocation = getText('footerLocation');
+
+  document.querySelector('.nav-logo').textContent = brand;
+  document.getElementById('footer-name').textContent = '© ' + new Date().getFullYear() + ' ' + brand;
+  document.getElementById('footer-location').textContent = footerLocation;
+  document.title = brand;
+
+  document.getElementById('nav-products').textContent = getText('navProducts');
+  document.getElementById('nav-information').textContent = getText('navInformation');
+  document.getElementById('nav-contact').textContent = getText('navContact');
+
+  setIfExists('products-label', getText('productsLabel'));
+  setIfExists('info-label', getText('infoLabel'));
+  setIfExists('contact-label', getText('contactLabel'));
+  setIfExists('articles-label', getText('articlesLabel'));
+
+  const filterButtons = document.querySelectorAll('#filter-bar button');
+  if (filterButtons[0]) filterButtons[0].textContent = getText('filterAll');
+  if (filterButtons[1]) filterButtons[1].textContent = getText('filterKitchen');
+  if (filterButtons[2]) filterButtons[2].textContent = getText('filterOutdoor');
+
+  document.getElementById('products-empty').textContent = getText('productsEmpty');
+  document.getElementById('articles-empty').textContent = getText('articlesEmpty');
+
+  setIfExists('cf-name-label', getText('cfNameLabel'));
+  setIfExists('cf-email-label', getText('cfEmailLabel'));
+  setIfExists('cf-knife-label', getText('cfKnifeLabel'));
+  setIfExists('cf-message-label', getText('cfMessageLabel'));
+
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn && !sendBtn.disabled) sendBtn.textContent = getText('cfSendButton');
+  document.getElementById('contact-success').textContent = getText('cfSuccessMessage');
+
+  setIfExists('detail-back-btn', getText('detailBack'));
+  setIfExists('detail-inquire-btn', getText('detailInquireButton'));
+  setIfExists('article-back-btn', getText('articleBack'));
+
+  document.querySelectorAll('[data-edit]').forEach(el => {
+    el.innerHTML = getText(el.dataset.edit);
+  });
+
+  // Render math after content updates
+  renderMathIn(document.querySelectorAll('.rich-content'));
+
+  renderProducts();
+  renderArticles();
+  renderContactSelect();
+}
+
+function setIfExists(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function renderMathIn(elements) {
+  if (typeof renderMathInElement !== 'function') return;
+  elements.forEach(el => {
+    try {
+      renderMathInElement(el, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false }
+        ],
+        throwOnError: false
+      });
+    } catch (e) { /* ignore */ }
+  });
+}
+
+function getKnifeMedia(knife) {
+  // Build a unified media array from old + new schema
+  const media = [];
+  if (Array.isArray(knife.images)) {
+    knife.images.forEach(item => {
+      if (!item) return;
+      if (typeof item === 'string' && item.startsWith('youtube:')) {
+        media.push({ type: 'youtube', id: item.slice(8) });
+      } else {
+        media.push({ type: 'image', url: item });
+      }
+    });
+  }
+  // Fallback to legacy single image if no images array
+  if (media.length === 0 && knife.image) {
+    media.push({ type: 'image', url: knife.image });
+  }
+  return media;
+}
+
+function renderProducts() {
+  const grid = document.getElementById('product-grid');
+  const empty = document.getElementById('products-empty');
+  const filter = state.currentFilter;
+
+  let knives = state.knives;
+  if (filter !== 'all') knives = knives.filter(k => k.category === filter);
+
+  if (knives.length === 0) {
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = knives.map(k => {
+    const media = getKnifeMedia(k);
+    const first = media[0];
+    const count = media.length;
+    let imgHtml;
+    if (!first) {
+      imgHtml = '<span class="product-img-placeholder">No image</span>';
+    } else if (first.type === 'youtube') {
+      imgHtml = `<img src="${escapeHTML(youtubeThumb(first.id))}" alt="${escapeHTML(k.name)}"/><div class="video-overlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>`;
+    } else {
+      imgHtml = `<img src="${escapeHTML(first.url)}" alt="${escapeHTML(k.name)}" onerror="this.outerHTML='<span class=\\'product-img-placeholder\\'>No image</span>'"/>`;
+    }
+    return `
+      <div class="product-card" onclick="showDetail('${k.id}')">
+        <div class="admin-controls" onclick="event.stopPropagation()">
+          <button onclick="editKnife('${k.id}')">Edit</button>
+          <button class="delete" onclick="confirmDeleteKnife('${k.id}')">Delete</button>
+        </div>
+        <div class="product-img">
+          ${imgHtml}
+          ${count > 1 ? `<span class="product-img-count">${count} items</span>` : ''}
+        </div>
+        <div class="product-info">
+          <p class="product-name">${escapeHTML(k.name)}</p>
+          <p class="product-meta">${escapeHTML(k.steel || '')}${k.steel && k.handle ? ' · ' : ''}${escapeHTML(k.handle || '')}${k.length ? ' · ' + escapeHTML(k.length) : ''}</p>
+        </div>
+        <div class="product-footer">
+          <span class="product-price">${escapeHTML(k.price || '')}</span>
+          <span class="product-tag ${k.status}">${formatStatus(k.status)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderArticles() {
+  const section = document.getElementById('articles-section');
+  const grid = document.getElementById('articles-grid');
+  const empty = document.getElementById('articles-empty');
+
+  const showSection = state.articles.length > 0 || state.session;
+  section.style.display = showSection ? 'block' : 'none';
+
+  if (state.articles.length === 0) {
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    empty.style.display = state.session ? 'block' : 'none';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = state.articles.map(a => `
+    <div class="article-card" onclick="showArticle('${a.id}')">
+      <div class="admin-controls" onclick="event.stopPropagation()">
+        <button onclick="editArticle('${a.id}')">Edit</button>
+        <button class="delete" onclick="confirmDeleteArticle('${a.id}')">Delete</button>
+      </div>
+      <div class="article-card-img">
+        ${a.cover_image
+          ? `<img src="${escapeHTML(a.cover_image)}" alt="${escapeHTML(a.title)}" onerror="this.outerHTML='<span class=\\'article-card-img-placeholder\\'>No cover image</span>'"/>`
+          : '<span class="article-card-img-placeholder">No cover image</span>'}
+      </div>
+      <p class="article-card-title">${escapeHTML(a.title)}</p>
+      <p class="article-card-date">${new Date(a.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+  `).join('');
+}
+
+function renderContactSelect() {
+  const sel = document.getElementById('cf-knife');
+  sel.innerHTML = `<option value="">${escapeHTML(getText('cfGenericOption'))}</option>` +
+    state.knives.map(k => `<option value="${escapeHTML(k.name)}">${escapeHTML(k.name)}</option>`).join('');
+}
+
+function formatStatus(s) {
+  return ({
+    available: getText('statusAvailable'),
+    'made-to-order': getText('statusMadeToOrder'),
+    sold: getText('statusSold')
+  })[s] || s;
+}
+
+function escapeHTML(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function showPage(name) {
+  closeDetail();
+  document.getElementById('article-view').classList.remove('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + name).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================================
+   SLIDESHOW
+   ============================================================ */
+function renderSlideshow(media) {
+  const wrap = document.getElementById('detail-media-wrap');
+  if (!media || media.length === 0) {
+    wrap.innerHTML = '<div class="slideshow"><div class="slideshow-placeholder">No media</div></div>';
+    return;
+  }
+
+  state.currentSlide = 0;
+
+  const slidesHtml = media.map((m, i) => {
+    if (m.type === 'youtube') {
+      return `<div class="slideshow-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
+        <iframe src="https://www.youtube.com/embed/${escapeHTML(m.id)}?rel=0" allowfullscreen></iframe>
+      </div>`;
+    }
+    return `<div class="slideshow-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
+      <img src="${escapeHTML(m.url)}" alt=""/>
+    </div>`;
+  }).join('');
+
+  const dotsHtml = media.length > 1
+    ? `<div class="slideshow-dots">${media.map((_, i) => `<button class="slideshow-dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></button>`).join('')}</div>`
+    : '';
+
+  const arrowsHtml = media.length > 1
+    ? `<button class="slideshow-arrow prev" onclick="changeSlide(-1)" aria-label="Previous">‹</button>
+       <button class="slideshow-arrow next" onclick="changeSlide(1)" aria-label="Next">›</button>`
+    : '';
+
+  const counterHtml = media.length > 1
+    ? `<div class="slideshow-counter" id="slide-counter">1 / ${media.length}</div>`
+    : '';
+
+  wrap.innerHTML = `
+    <div class="slideshow" id="slideshow">
+      <div class="slideshow-main">
+        ${slidesHtml}
+        ${arrowsHtml}
+        ${counterHtml}
+      </div>
+      ${dotsHtml}
+    </div>
+  `;
+
+  // Touch swipe
+  const slideshow = document.getElementById('slideshow');
+  let touchStartX = 0;
+  slideshow.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  slideshow.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) changeSlide(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  state.currentSlideMedia = media;
+}
+
+function changeSlide(dir) {
+  const media = state.currentSlideMedia;
+  if (!media || media.length < 2) return;
+  state.currentSlide = (state.currentSlide + dir + media.length) % media.length;
+  applySlide();
+}
+
+function goToSlide(i) {
+  state.currentSlide = i;
+  applySlide();
+}
+
+function applySlide() {
+  const slides = document.querySelectorAll('.slideshow-slide');
+  const dots = document.querySelectorAll('.slideshow-dot');
+  slides.forEach((s, i) => s.classList.toggle('active', i === state.currentSlide));
+  dots.forEach((d, i) => d.classList.toggle('active', i === state.currentSlide));
+  const counter = document.getElementById('slide-counter');
+  if (counter) counter.textContent = `${state.currentSlide + 1} / ${slides.length}`;
+}
+
+/* ============================================================
+   DETAIL VIEWS
+   ============================================================ */
+function showDetail(id) {
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  state.currentDetailId = id;
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('article-view').classList.remove('active');
+  document.getElementById('detail-view').classList.add('active');
+
+  document.getElementById('detail-name').textContent = k.name;
+  document.getElementById('detail-status').textContent = formatStatus(k.status);
+  document.getElementById('detail-status').className = 'detail-status ' + k.status;
+  document.getElementById('detail-price').textContent = k.price || '';
+
+  const descEl = document.getElementById('detail-desc');
+  descEl.innerHTML = k.description || '';
+
+  const specs = [];
+  if (k.category) specs.push(['Category', k.category]);
+  if (k.length) specs.push(['Blade length', k.length]);
+  if (k.steel) specs.push(['Steel', k.steel]);
+  if (k.handle) specs.push(['Handle', k.handle]);
+  specs.push(['Status', formatStatus(k.status)]);
+
+  document.getElementById('detail-specs').innerHTML = specs.map(([key, val]) =>
+    `<li><span>${escapeHTML(key)}</span><span>${escapeHTML(val)}</span></li>`
+  ).join('');
+
+  renderSlideshow(getKnifeMedia(k));
+  renderMathIn([descEl]);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('active');
+  state.currentDetailId = null;
+}
+
+function inquireAboutKnife() {
+  const k = state.knives.find(x => x.id === state.currentDetailId);
+  showPage('contact');
+  if (k) {
+    setTimeout(() => {
+      const sel = document.getElementById('cf-knife');
+      for (let opt of sel.options) {
+        if (opt.value === k.name) { sel.value = k.name; break; }
+      }
+      document.getElementById('cf-name').focus();
+    }, 200);
+  }
+}
+
+function showArticle(id) {
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  state.currentArticleId = id;
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('article-view').classList.add('active');
+
+  const hero = document.getElementById('article-hero');
+  if (a.cover_image) {
+    hero.innerHTML = `<img src="${escapeHTML(a.cover_image)}" alt="${escapeHTML(a.title)}" onerror="this.outerHTML='<span class=\\'article-card-img-placeholder\\'>No cover image</span>'"/>`;
+  } else {
+    hero.innerHTML = '<span class="article-card-img-placeholder">No cover image</span>';
+  }
+
+  document.getElementById('article-title').textContent = a.title;
+  document.getElementById('article-date').textContent = new Date(a.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const bodyEl = document.getElementById('article-body');
+  bodyEl.innerHTML = a.content || '<p style="color:var(--muted)">This article has no content yet.</p>';
+  renderMathIn([bodyEl]);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeArticle() {
+  document.getElementById('article-view').classList.remove('active');
+  state.currentArticleId = null;
+  showPage('information');
+}
+
+/* ============================================================
+   FILTERS
+   ============================================================ */
+document.getElementById('filter-bar').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#filter-bar button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.currentFilter = e.target.dataset.filter;
+  renderProducts();
+});
+
+/* ============================================================
+   QUILL RICH TEXT EDITOR
+   ============================================================ */
+function buildQuillEditor(containerId) {
+  const Font = Quill.import('formats/font');
+  Font.whitelist = ['sans', 'serif', 'mono'];
+  Quill.register(Font, true);
+
+  const toolbarOptions = [
+    [{ 'header': [1, 2, 3, false] }],
+    [{ 'font': ['sans', 'serif', 'mono'] }],
+    [{ 'size': ['small', false, 'large', 'huge'] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'align': [] }],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    ['blockquote'],
+    ['link', 'image'],
+    ['formula-custom', 'youtube'],
+    ['clean']
+  ];
+
+  const quill = new Quill('#' + containerId, {
+    theme: 'snow',
+    modules: {
+      toolbar: {
+        container: toolbarOptions,
+        handlers: {
+          'formula-custom': function() {
+            openLatexModal(quill);
+          },
+          'youtube': function() {
+            openYoutubeModal(quill);
+          },
+          'image': function() {
+            // Custom image handler — upload to Supabase Storage
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async () => {
+              const file = input.files[0];
+              if (!file) return;
+              toast('Uploading image…');
+              try {
+                const url = await uploadImage(file);
+                const range = quill.getSelection(true);
+                quill.insertEmbed(range.index, 'image', url);
+                quill.setSelection(range.index + 1);
+                toast('Image inserted');
+              } catch (e) {
+                toast('Upload failed: ' + e.message, true);
+              }
+            };
+            input.click();
+          }
+        }
+      }
+    },
+    placeholder: 'Start writing…'
+  });
+
+  return quill;
+}
+
+let currentEditorForInsert = null;
+
+function openLatexModal(editor) {
+  currentEditorForInsert = editor;
+  document.getElementById('latex-input').value = '';
+  document.getElementById('latex-preview').innerHTML = '<span style="color:var(--muted); font-size:13px;">Type LaTeX above to see preview</span>';
+  openModal('latex-modal');
+  setTimeout(() => document.getElementById('latex-input').focus(), 100);
+}
+
+document.getElementById('latex-input').addEventListener('input', e => {
+  const tex = e.target.value;
+  const preview = document.getElementById('latex-preview');
+  if (!tex.trim()) {
+    preview.innerHTML = '<span style="color:var(--muted); font-size:13px;">Type LaTeX above to see preview</span>';
+    return;
+  }
+  try {
+    katex.render(tex, preview, { throwOnError: false, displayMode: true });
+  } catch (err) {
+    preview.innerHTML = '<span style="color:var(--danger); font-size:13px;">Invalid LaTeX</span>';
+  }
+});
+
+function insertLatex() {
+  const tex = document.getElementById('latex-input').value.trim();
+  if (!tex) { toast('Please enter LaTeX', true); return; }
+  if (!currentEditorForInsert) return;
+  const range = currentEditorForInsert.getSelection(true);
+  // Insert as $$ delimited text so it renders on the live site too
+  currentEditorForInsert.insertText(range.index, ` $$${tex}$$ `);
+  currentEditorForInsert.setSelection(range.index + tex.length + 6);
+  closeModal('latex-modal');
+}
+
+function openYoutubeModal(editor) {
+  currentEditorForInsert = editor;
+  document.getElementById('youtube-input').value = '';
+  openModal('youtube-modal');
+  setTimeout(() => document.getElementById('youtube-input').focus(), 100);
+}
+
+function insertYoutube() {
+  const input = document.getElementById('youtube-input').value.trim();
+  const id = extractYoutubeId(input);
+  if (!id) { toast('Could not parse a YouTube video ID', true); return; }
+  if (!currentEditorForInsert) return;
+
+  // Insert as an HTML block via Quill's clipboard API
+  const range = currentEditorForInsert.getSelection(true);
+  const embedHtml = `<div class="embed-youtube"><iframe src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen></iframe></div>`;
+  currentEditorForInsert.clipboard.dangerouslyPasteHTML(range.index, embedHtml);
+  closeModal('youtube-modal');
+}
+
+// Allow Quill to keep our youtube embed div + iframe via "dangerouslyPasteHTML"
+// Register a blot for the embed so it survives editor round-trips.
+(function registerYoutubeBlot() {
+  if (!window.Quill) return;
+  const BlockEmbed = Quill.import('blots/block/embed');
+  class YoutubeEmbedBlot extends BlockEmbed {
+    static create(value) {
+      const node = super.create();
+      const id = typeof value === 'string' ? value : value.id;
+      node.setAttribute('class', 'embed-youtube');
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('src', `https://www.youtube.com/embed/${id}?rel=0`);
+      iframe.setAttribute('allowfullscreen', 'true');
+      iframe.setAttribute('frameborder', '0');
+      node.appendChild(iframe);
+      node.setAttribute('data-youtube-id', id);
+      return node;
+    }
+    static value(node) {
+      return { id: node.getAttribute('data-youtube-id') };
+    }
+  }
+  YoutubeEmbedBlot.blotName = 'youtube-embed';
+  YoutubeEmbedBlot.tagName = 'div';
+  YoutubeEmbedBlot.className = 'embed-youtube';
+  Quill.register(YoutubeEmbedBlot);
+})();
+
+/* ============================================================
+   MEDIA MANAGER (for knife modal: photos + videos array)
+   ============================================================ */
+function renderKnifeMediaManager() {
+  const container = document.getElementById('knife-media-manager');
+  container.innerHTML = `
+    <label class="media-dropzone" id="knife-dropzone">
+      <input type="file" accept="image/*" multiple id="knife-file-input"/>
+      <div>Drop photos here, or <u>click to upload</u></div>
+      <div style="font-size:11px; margin-top:0.4rem; opacity:0.7;">JPG, PNG, GIF, WebP — up to 10MB each</div>
+    </label>
+    <div class="media-add-row">
+      <input type="text" id="knife-youtube-url" placeholder="Or paste a YouTube URL…"/>
+      <button type="button" onclick="addKnifeYoutube()">Add video</button>
+    </div>
+    <div class="media-grid" id="knife-media-grid"></div>
+  `;
+
+  setupDropzone('knife-dropzone', 'knife-file-input', async files => {
+    for (let file of files) {
+      await uploadAndAddKnifeMedia(file);
+    }
+  });
+
+  renderKnifeMediaGrid();
+}
+
+async function uploadAndAddKnifeMedia(file) {
+  try {
+    toast('Uploading…');
+    const url = await uploadImage(file);
+    knifeMediaItems.push({ type: 'image', url });
+    renderKnifeMediaGrid();
+    toast('Image added');
+  } catch (e) {
+    toast('Upload failed: ' + e.message, true);
+  }
+}
+
+function addKnifeYoutube() {
+  const input = document.getElementById('knife-youtube-url');
+  const id = extractYoutubeId(input.value);
+  if (!id) { toast('Could not parse a YouTube video ID', true); return; }
+  knifeMediaItems.push({ type: 'youtube', id });
+  input.value = '';
+  renderKnifeMediaGrid();
+  toast('Video added');
+}
+
+function renderKnifeMediaGrid() {
+  const grid = document.getElementById('knife-media-grid');
+  if (!grid) return;
+  if (knifeMediaItems.length === 0) {
+    grid.innerHTML = '';
+    return;
+  }
+  grid.innerHTML = knifeMediaItems.map((m, i) => {
+    const thumb = m.type === 'youtube'
+      ? `<div class="media-item-video"><img src="${escapeHTML(youtubeThumb(m.id))}" alt=""/><span class="media-item-video-icon">▶</span></div>`
+      : `<img src="${escapeHTML(m.url)}" alt=""/>`;
+    return `
+      <div class="media-item" draggable="true" data-index="${i}">
+        ${thumb}
+        <span class="media-item-order">${i + 1}</span>
+        <button type="button" class="media-item-remove" onclick="removeKnifeMedia(${i})">×</button>
+      </div>
+    `;
+  }).join('');
+
+  // Drag-and-drop reordering
+  grid.querySelectorAll('.media-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      item.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', item.dataset.index);
+    });
+    item.addEventListener('dragend', () => item.classList.remove('dragging'));
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      const dragging = grid.querySelector('.dragging');
+      if (!dragging || dragging === item) return;
+      const r = item.getBoundingClientRect();
+      const after = e.clientX > r.left + r.width / 2;
+      grid.insertBefore(dragging, after ? item.nextSibling : item);
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      // Rebuild knifeMediaItems based on new DOM order
+      const newOrder = [];
+      grid.querySelectorAll('.media-item').forEach(el => {
+        newOrder.push(knifeMediaItems[+el.dataset.index]);
+      });
+      knifeMediaItems = newOrder;
+      renderKnifeMediaGrid();
+    });
+  });
+}
+
+function removeKnifeMedia(i) {
+  knifeMediaItems.splice(i, 1);
+  renderKnifeMediaGrid();
+}
+
+/* ============================================================
+   ARTICLE COVER MANAGER (single image)
+   ============================================================ */
+function renderArticleCoverManager() {
+  const container = document.getElementById('article-cover-manager');
+  container.innerHTML = `
+    <label class="media-dropzone" id="article-dropzone" style="${articleCoverItem ? 'display:none;' : ''}">
+      <input type="file" accept="image/*" id="article-file-input"/>
+      <div>Drop a cover image here, or <u>click to upload</u></div>
+      <div style="font-size:11px; margin-top:0.4rem; opacity:0.7;">JPG, PNG, GIF, WebP — up to 10MB</div>
+    </label>
+    <div class="media-grid" id="article-cover-preview" style="${articleCoverItem ? '' : 'display:none;'}"></div>
+  `;
+
+  setupDropzone('article-dropzone', 'article-file-input', async files => {
+    if (files[0]) await uploadAndSetArticleCover(files[0]);
+  });
+
+  renderArticleCoverPreview();
+}
+
+async function uploadAndSetArticleCover(file) {
+  try {
+    toast('Uploading…');
+    const url = await uploadImage(file);
+    articleCoverItem = url;
+    renderArticleCoverManager();
+    toast('Cover image set');
+  } catch (e) {
+    toast('Upload failed: ' + e.message, true);
+  }
+}
+
+function renderArticleCoverPreview() {
+  const preview = document.getElementById('article-cover-preview');
+  if (!preview) return;
+  if (!articleCoverItem) {
+    preview.innerHTML = '';
+    return;
+  }
+  preview.innerHTML = `
+    <div class="media-item" style="aspect-ratio:auto; height:120px;">
+      <img src="${escapeHTML(articleCoverItem)}" alt=""/>
+      <button type="button" class="media-item-remove" onclick="removeArticleCover()">×</button>
+    </div>
+  `;
+}
+
+function removeArticleCover() {
+  articleCoverItem = null;
+  renderArticleCoverManager();
+}
+
+/* ============================================================
+   DROPZONE HELPER
+   ============================================================ */
+function setupDropzone(dropzoneId, fileInputId, onFiles) {
+  const dz = document.getElementById(dropzoneId);
+  const input = document.getElementById(fileInputId);
+  if (!dz || !input) return;
+
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files);
+    if (files.length) onFiles(files);
+    input.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dz.classList.add('dragover');
+  }));
+
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (ev === 'dragleave' && dz.contains(e.relatedTarget)) return;
+    dz.classList.remove('dragover');
+  }));
+
+  dz.addEventListener('drop', e => {
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) onFiles(files);
+  });
+}
+
+/* ============================================================
+   KNIFE CRUD
+   ============================================================ */
+function openKnifeModal(id) {
+  document.getElementById('knife-modal-title').textContent = id ? 'Edit knife' : 'Add a knife';
+  document.getElementById('delete-btn').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('knife-id').value = id || '';
+
+  const k = id ? state.knives.find(x => x.id === id) : null;
+  document.getElementById('knife-name').value = k?.name || '';
+  document.getElementById('knife-category').value = k?.category || 'Kitchen';
+  document.getElementById('knife-status').value = k?.status || 'available';
+  document.getElementById('knife-length').value = k?.length || '';
+  document.getElementById('knife-price').value = k?.price || '';
+  document.getElementById('knife-steel').value = k?.steel || '';
+  document.getElementById('knife-handle').value = k?.handle || '';
+
+  knifeMediaItems = k ? getKnifeMedia(k) : [];
+
+  openModal('knife-modal');
+
+  // Initialize Quill (or reset its contents) AFTER modal is visible
+  setTimeout(() => {
+    if (!knifeEditor) {
+      knifeEditor = buildQuillEditor('knife-description-editor');
+    }
+    knifeEditor.root.innerHTML = k?.description || '';
+    renderKnifeMediaManager();
+  }, 60);
+}
+
+function editKnife(id) { openKnifeModal(id); }
+
+async function saveKnife() {
+  const existingId = document.getElementById('knife-id').value;
+  const name = document.getElementById('knife-name').value.trim();
+  if (!name) { toast('Please add a name', true); return; }
+
+  // Serialize media: images stored as URLs, youtube as "youtube:ID"
+  const imagesArr = knifeMediaItems.map(m =>
+    m.type === 'youtube' ? `youtube:${m.id}` : m.url
+  );
+
+  const description = knifeEditor ? knifeEditor.root.innerHTML : '';
+  const isEmpty = description === '<p><br></p>' || description === '';
+
+  const knife = {
+    id: existingId || ('k-' + Date.now()),
+    name,
+    category: document.getElementById('knife-category').value,
+    status: document.getElementById('knife-status').value,
+    length: document.getElementById('knife-length').value.trim() || null,
+    price: document.getElementById('knife-price').value.trim() || null,
+    steel: document.getElementById('knife-steel').value.trim() || null,
+    handle: document.getElementById('knife-handle').value.trim() || null,
+    image: imagesArr[0] && !imagesArr[0].startsWith('youtube:') ? imagesArr[0] : null,
+    images: imagesArr,
+    description: isEmpty ? null : description
+  };
+
+  const btn = document.getElementById('save-knife-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('knives').upsert(knife);
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  closeModal('knife-modal');
+  await loadKnives();
+  renderAll();
+  toast(existingId ? 'Knife updated' : 'Knife added');
+}
+
+async function confirmDeleteKnife(id) {
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  if (!confirm(`Delete "${k.name}"? This can't be undone.`)) return;
+  const { error } = await sb.from('knives').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+  await loadKnives();
+  renderAll();
+  toast('Knife deleted');
+}
+
+async function deleteKnife() {
+  const id = document.getElementById('knife-id').value;
+  if (!id) return;
+  const k = state.knives.find(x => x.id === id);
+  if (!k) return;
+  if (!confirm(`Delete "${k.name}"? This can't be undone.`)) return;
+  const { error } = await sb.from('knives').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+  closeModal('knife-modal');
+  await loadKnives();
+  renderAll();
+  toast('Knife deleted');
+}
+
+/* ============================================================
+   ARTICLE CRUD
+   ============================================================ */
+function openArticleModal(id) {
+  document.getElementById('article-modal-title').textContent = id ? 'Edit article' : 'Add an article';
+  document.getElementById('delete-article-btn').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('article-id').value = id || '';
+
+  const a = id ? state.articles.find(x => x.id === id) : null;
+  document.getElementById('article-title-input').value = a?.title || '';
+  articleCoverItem = a?.cover_image || null;
+
+  openModal('article-modal');
+
+  setTimeout(() => {
+    if (!articleEditor) {
+      articleEditor = buildQuillEditor('article-content-editor');
+    }
+    articleEditor.root.innerHTML = a?.content || '';
+    renderArticleCoverManager();
+  }, 60);
+}
+
+function editArticle(id) { openArticleModal(id); }
+
+async function saveArticle() {
+  const existingId = document.getElementById('article-id').value;
+  const title = document.getElementById('article-title-input').value.trim();
+  if (!title) { toast('Please add a title', true); return; }
+
+  const content = articleEditor ? articleEditor.root.innerHTML : '';
+  const isEmpty = content === '<p><br></p>' || content === '';
+
+  const article = {
+    id: existingId || ('a-' + Date.now()),
+    title,
+    cover_image: articleCoverItem || null,
+    content: isEmpty ? null : content
+  };
+
+  const btn = document.getElementById('save-article-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('articles').upsert(article);
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  closeModal('article-modal');
+  await loadArticles();
+  renderAll();
+  toast(existingId ? 'Article updated' : 'Article added');
+}
+
+async function confirmDeleteArticle(id) {
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`Delete "${a.title}"? This can't be undone.`)) return;
+  const { error } = await sb.from('articles').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+  await loadArticles();
+  renderAll();
+  toast('Article deleted');
+}
+
+async function deleteArticle() {
+  const id = document.getElementById('article-id').value;
+  if (!id) return;
+  const a = state.articles.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`Delete "${a.title}"? This can't be undone.`)) return;
+  const { error } = await sb.from('articles').delete().eq('id', id);
+  if (error) { toast('Could not delete: ' + error.message, true); return; }
+  closeModal('article-modal');
+  await loadArticles();
+  renderAll();
+  toast('Article deleted');
+}
+
+/* ============================================================
+   INLINE TEXT EDIT (click on page to edit)
+   ============================================================ */
+document.querySelectorAll('[data-edit]').forEach(el => {
+  el.addEventListener('click', e => {
+    if (!state.session) return;
+    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+    e.stopPropagation();
+    if (el.dataset.rich === 'true') {
+      openRichTextEditor(el.dataset.edit);
+    } else {
+      openPlainTextEditor(el.dataset.edit);
+    }
+  });
+});
+
+function openRichTextEditor(key) {
+  const labels = {
+    infoBody: 'Information page content',
+    contactDetails: 'Contact details'
+  };
+  document.getElementById('rich-text-modal-title').textContent = 'Edit: ' + (labels[key] || key);
+  document.getElementById('rich-text-key').value = key;
+  openModal('rich-text-modal');
+
+  setTimeout(() => {
+    if (!richTextEditor) {
+      richTextEditor = buildQuillEditor('rich-text-editor');
+    }
+    richTextEditor.root.innerHTML = getText(key);
+  }, 60);
+}
+
+async function saveRichText() {
+  const key = document.getElementById('rich-text-key').value;
+  const value = richTextEditor.root.innerHTML;
+  const { error } = await sb.from('site_content').upsert({ key, value });
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+  state.text[key] = value;
+  closeModal('rich-text-modal');
+  renderAll();
+  toast('Saved');
+}
+
+function openPlainTextEditor(key) {
+  const labels = {
+    productsTitle: 'Products page title',
+    infoTitle: 'Information page title',
+    contactTitle: 'Contact page title',
+    articlesTitle: 'Articles section heading',
+    brandName: 'Brand name (also in Site text panel)'
+  };
+  document.getElementById('text-modal-title').textContent = 'Edit: ' + (labels[key] || key);
+  document.getElementById('text-edit-key').value = key;
+  document.getElementById('text-edit-value').value = getText(key);
+  openModal('text-modal');
+}
+
+async function saveText() {
+  const key = document.getElementById('text-edit-key').value;
+  const value = document.getElementById('text-edit-value').value;
+  const { error } = await sb.from('site_content').upsert({ key, value });
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+  state.text[key] = value;
+  closeModal('text-modal');
+  renderAll();
+  toast('Saved');
+}
+
+function handleLogoClick(event) {
+  if (state.session) {
+    event.stopPropagation();
+    openPlainTextEditor('brandName');
+  } else {
+    showPage('products');
+  }
+}
+
+/* ============================================================
+   SITE TEXT PANEL
+   ============================================================ */
+function openSiteTextModal() {
+  const form = document.getElementById('site-text-form');
+  form.innerHTML = SITE_TEXT_GROUPS.map(group => `
+    <div class="text-group">
+      <p class="text-group-label">${group.label}</p>
+      ${group.keys.map(key => {
+        const value = state.text[key] !== undefined ? state.text[key] : DEFAULTS[key];
+        const isLong = (DEFAULTS[key] || '').length > 60;
+        return `
+          <div class="form-row">
+            <label>${humanizeKey(key)}</label>
+            ${isLong
+              ? `<textarea data-key="${key}" style="min-height:60px;">${escapeHTML(value)}</textarea>`
+              : `<input type="text" data-key="${key}" value="${escapeHTML(value)}"/>`}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
+  openModal('site-text-modal');
+}
+
+function humanizeKey(key) {
+  const labels = {
+    brandName: 'Brand name', footerLocation: 'Footer tagline',
+    navProducts: 'Nav: Products', navInformation: 'Nav: Information', navContact: 'Nav: Contact',
+    productsLabel: 'Products page label', filterAll: 'Filter: All', filterKitchen: 'Filter: Kitchen', filterOutdoor: 'Filter: Outdoor',
+    productsEmpty: 'No knives empty state',
+    statusAvailable: 'Status: Available', statusSold: 'Status: Sold', statusMadeToOrder: 'Status: Made to order',
+    infoLabel: 'Information label', articlesLabel: 'Articles label', articlesEmpty: 'No articles empty state',
+    contactLabel: 'Contact label', cfNameLabel: 'Name field', cfEmailLabel: 'Email field',
+    cfKnifeLabel: 'Knife dropdown', cfMessageLabel: 'Message field', cfSendButton: 'Send button',
+    cfGenericOption: 'Dropdown first option', cfSuccessMessage: 'Confirmation message',
+    detailBack: 'Knife back button', detailInquireButton: 'Inquire button', articleBack: 'Article back button'
+  };
+  return labels[key] || key;
+}
+
+async function saveSiteText() {
+  const inputs = document.querySelectorAll('#site-text-form [data-key]');
+  const updates = [];
+  inputs.forEach(input => {
+    const key = input.dataset.key;
+    const value = input.value;
+    updates.push({ key, value });
+    state.text[key] = value;
+  });
+
+  const btn = document.getElementById('save-site-text-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('site_content').upsert(updates);
+
+  btn.disabled = false;
+  btn.textContent = 'Save all';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+  closeModal('site-text-modal');
+  renderAll();
+  toast('Site text updated');
+}
+
+/* ============================================================
+   CONTACT FORM
+   ============================================================ */
+async function sendInquiry() {
+  const name = document.getElementById('cf-name').value.trim();
+  const email = document.getElementById('cf-email').value.trim();
+  const knife = document.getElementById('cf-knife').value;
+  const message = document.getElementById('cf-msg').value.trim();
+
+  if (!name || !email) { toast('Please add your name and email', true); return; }
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { error } = await sb.from('inquiries').insert({
+    id: 'i-' + Date.now(),
+    name, email,
+    knife: knife || null,
+    message: message || null
+  });
+
+  btn.disabled = false;
+  btn.textContent = getText('cfSendButton');
+
+  if (error) { toast('Could not send: ' + error.message, true); return; }
+
+  document.getElementById('cf-name').value = '';
+  document.getElementById('cf-email').value = '';
+  document.getElementById('cf-knife').value = '';
+  document.getElementById('cf-msg').value = '';
+
+  const success = document.getElementById('contact-success');
+  success.style.display = 'block';
+  setTimeout(() => success.style.display = 'none', 6000);
+}
+
+/* ============================================================
+   INQUIRIES
+   ============================================================ */
+async function openInquiriesModal() {
+  await loadInquiries();
+  const list = document.getElementById('inquiries-list');
+  if (state.inquiries.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted); font-size:14px; text-align:center; padding:2rem 0;">No inquiries yet.</p>';
+  } else {
+    list.innerHTML = state.inquiries.map(i => `
+      <div class="inquiry-item">
+        <div class="inquiry-meta">
+          <span class="inquiry-name">${escapeHTML(i.name)}</span>
+          <span>${new Date(i.created_at).toLocaleDateString()}</span>
+        </div>
+        <div style="font-size:13px;"><a href="mailto:${escapeHTML(i.email)}">${escapeHTML(i.email)}</a>${i.knife ? ' · interested in ' + escapeHTML(i.knife) : ''}</div>
+        ${i.message ? `<div class="inquiry-msg">${escapeHTML(i.message)}</div>` : ''}
+        <div style="margin-top: 0.75rem;">
+          <button class="btn" style="font-size:10px; padding:0.3rem 0.8rem;" onclick="deleteInquiry('${i.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  openModal('inquiries-modal');
+}
+
+async function deleteInquiry(id) {
+  if (!confirm('Delete this inquiry?')) return;
+  const { error } = await sb.from('inquiries').delete().eq('id', id);
+  if (error) { toast('Could not delete', true); return; }
+  await loadInquiries();
+  openInquiriesModal();
+  toast('Inquiry deleted');
+}
+
+/* ============================================================
+   MODAL & KEYBOARD
+   ============================================================ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => {
+    if (e.target === bd) bd.classList.remove('open');
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  }
+  // Slideshow keyboard nav
+  if (document.getElementById('detail-view').classList.contains('active')) {
+    if (e.key === 'ArrowLeft') changeSlide(-1);
+    if (e.key === 'ArrowRight') changeSlide(1);
+  }
+});
+
+/* ============================================================
+   DESIGN: APPLY, PREVIEW, SAVE
+   ============================================================ */
+function applyDesign(d) {
+  const root = document.documentElement;
+  root.style.setProperty('--ink', d.ink);
+  root.style.setProperty('--muted', d.muted);
+  root.style.setProperty('--bg', d.bg);
+  root.style.setProperty('--card-bg', d.cardBg);
+  root.style.setProperty('--accent', d.accent);
+  root.style.setProperty('--font-heading', d.fontHeading);
+  root.style.setProperty('--font-body', d.fontBody);
+  root.style.setProperty('--base-font-size', d.baseFontSize + 'px');
+  root.style.setProperty('--page-max-width', d.pageWidth + 'px');
+  root.style.setProperty('--section-padding-y', d.sectionPaddingY + 'rem');
+  root.style.setProperty('--slideshow-height', d.slideshowHeight + 'px');
+  root.style.setProperty('--border-radius', d.borderRadius + 'px');
+
+  // Card size preset
+  const cardPreset = CARD_SIZE_PRESETS[d.cardSize] || CARD_SIZE_PRESETS.medium;
+  root.style.setProperty('--card-min-width', cardPreset.minWidth);
+  root.style.setProperty('--card-img-height', cardPreset.imgHeight);
+
+  // Body class toggles for layout variants
+  document.body.classList.remove('cards-no-divider', 'filter-pills', 'card-aspect-square', 'card-aspect-landscape', 'card-aspect-portrait');
+  if (d.cardDivider) document.body.classList.add(d.cardDivider);
+  if (d.filterStyle) document.body.classList.add(d.filterStyle);
+  if (d.cardAspect) document.body.classList.add('card-aspect-' + d.cardAspect);
+
+  // Update --rule and --rule-strong based on whether bg is dark
+  const isDark = isColorDark(d.bg);
+  root.style.setProperty('--rule', isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)');
+  root.style.setProperty('--rule-strong', isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)');
+
+  // Background pattern
+  applyBackgroundPattern(d);
+}
+
+/* ============================================================
+   BACKGROUND PATTERN (topographic lines)
+   ============================================================ */
+function applyBackgroundPattern(d) {
+  if (d.bgPattern === 'topo') {
+    const svgUrl = buildTopoBackground(d);
+    document.body.style.backgroundImage = `url("${svgUrl}")`;
+    document.body.style.backgroundRepeat = 'repeat';
+    document.body.style.backgroundSize = `${d.topoScale}px ${d.topoScale}px`;
+    document.body.style.backgroundAttachment = 'fixed';
+  } else {
+    document.body.style.backgroundImage = '';
+    document.body.style.backgroundRepeat = '';
+    document.body.style.backgroundSize = '';
+    document.body.style.backgroundAttachment = '';
+  }
+}
+
+// Seeded pseudo-random generator (mulberry32)
+function makeRng(seed) {
+  let a = (parseInt(seed, 10) || 1) | 0;
+  return function() {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildTopoBackground(d) {
+  const size = 400; // SVG viewBox size — actual rendered size set via CSS background-size
+  const density = parseInt(d.topoDensity, 10) || 12;
+  const opacity = parseFloat(d.topoOpacity) || 0.18;
+  const thickness = parseFloat(d.topoThickness) || 1.0;
+  const seed = d.topoSeed || '1234';
+  const lineColor = d.topoLine || '#000000';
+  const bgColor = d.topoBg || '#ffffff';
+
+  const rng = makeRng(seed);
+
+  // Place a handful of "peaks" (random centers) — contour lines will form around them
+  const numPeaks = 2 + Math.floor(rng() * 3); // 2–4 peaks
+  const peaks = [];
+  for (let i = 0; i < numPeaks; i++) {
+    peaks.push({
+      x: rng() * size,
+      y: rng() * size,
+      // Each peak has its own "height" influence
+      strength: 80 + rng() * 160,
+      // Stretch factor to make non-circular contours
+      stretchX: 0.6 + rng() * 0.8,
+      stretchY: 0.6 + rng() * 0.8,
+      rotation: rng() * Math.PI
+    });
+  }
+
+  // Function that returns the "elevation" at any point
+  function elevation(x, y) {
+    let sum = 0;
+    for (let p of peaks) {
+      const dx = x - p.x;
+      const dy = y - p.y;
+      // Apply rotation
+      const cos = Math.cos(p.rotation);
+      const sin = Math.sin(p.rotation);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      // Scaled distance
+      const sx = rx / p.stretchX;
+      const sy = ry / p.stretchY;
+      const dist = Math.sqrt(sx * sx + sy * sy);
+      // Gaussian-like falloff
+      sum += p.strength * Math.exp(-dist * dist / (p.strength * p.strength * 0.6));
+    }
+    return sum;
+  }
+
+  // Compute elevation at every grid point
+  const grid = 60; // grid resolution for marching squares
+  const step = size / grid;
+  const field = [];
+  let minE = Infinity, maxE = -Infinity;
+  for (let i = 0; i <= grid; i++) {
+    field[i] = [];
+    for (let j = 0; j <= grid; j++) {
+      const e = elevation(i * step, j * step);
+      field[i][j] = e;
+      if (e < minE) minE = e;
+      if (e > maxE) maxE = e;
+    }
+  }
+
+  // Generate contour line paths via marching squares
+  let paths = '';
+  for (let c = 1; c <= density; c++) {
+    const level = minE + (maxE - minE) * (c / (density + 1));
+    paths += marchingSquares(field, grid, step, level);
+  }
+
+  // Encode SVG as data URL
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" preserveAspectRatio="none">
+    <rect width="100%" height="100%" fill="${bgColor}"/>
+    <g stroke="${lineColor}" stroke-width="${thickness}" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}">
+      ${paths}
+    </g>
+  </svg>`;
+
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+// Simple marching squares — generates line segments for one isoline
+function marchingSquares(field, grid, step, level) {
+  let segments = '';
+  for (let i = 0; i < grid; i++) {
+    for (let j = 0; j < grid; j++) {
+      const a = field[i][j];
+      const b = field[i + 1][j];
+      const c = field[i + 1][j + 1];
+      const d = field[i][j + 1];
+
+      // Index based on which corners are above the level
+      let idx = 0;
+      if (a > level) idx |= 1;
+      if (b > level) idx |= 2;
+      if (c > level) idx |= 4;
+      if (d > level) idx |= 8;
+
+      if (idx === 0 || idx === 15) continue;
+
+      const x0 = i * step, y0 = j * step;
+      const x1 = (i + 1) * step, y1 = (j + 1) * step;
+
+      // Linear interpolation along edges
+      const top    = [x0 + step * frac(a, b, level), y0];
+      const right  = [x1, y0 + step * frac(b, c, level)];
+      const bottom = [x0 + step * frac(d, c, level), y1];
+      const left   = [x0, y0 + step * frac(a, d, level)];
+
+      // Connect edges based on the case
+      const draw = (p1, p2) => {
+        segments += `M${p1[0].toFixed(1)} ${p1[1].toFixed(1)} L${p2[0].toFixed(1)} ${p2[1].toFixed(1)} `;
+      };
+
+      switch (idx) {
+        case 1: case 14: draw(top, left); break;
+        case 2: case 13: draw(top, right); break;
+        case 3: case 12: draw(left, right); break;
+        case 4: case 11: draw(right, bottom); break;
+        case 5:  draw(top, left); draw(right, bottom); break;
+        case 6: case 9: draw(top, bottom); break;
+        case 7: case 8: draw(left, bottom); break;
+        case 10: draw(top, right); draw(left, bottom); break;
+      }
+    }
+  }
+  return `<path d="${segments}"/>`;
+}
+
+function frac(a, b, level) {
+  const denom = b - a;
+  if (Math.abs(denom) < 1e-9) return 0.5;
+  const t = (level - a) / denom;
+  return Math.max(0, Math.min(1, t));
+}
+
+function regenerateTopo() {
+  // New seed
+  designState.topoSeed = String(Math.floor(Math.random() * 1000000));
+  applyDesign(designState);
+}
+
+function isColorDark(hex) {
+  const c = hex.replace('#', '');
+  if (c.length !== 6) return false;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  // Standard luminance formula
+  return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+}
+
+function loadDesignFromState() {
+  // designState should already be populated from site_content
+  applyDesign(designState);
+}
+
+function findPaletteById(id) {
+  return PALETTES.find(p => p.id === id) || PALETTES[0];
+}
+
+/* ============================================================
+   DESIGN MODAL
+   ============================================================ */
+function openDesignModal() {
+  // Backup current settings to allow Cancel
+  designStateBackup = { ...designState };
+
+  // Render palette grid
+  const grid = document.getElementById('palette-options');
+  grid.innerHTML = PALETTES.map(p => `
+    <div class="palette-option ${designState.palette === p.id ? 'active' : ''}" data-palette="${p.id}" onclick="selectPalette('${p.id}')">
+      <div class="palette-swatches">
+        <div class="palette-swatch" style="background:${p.bg}"></div>
+        <div class="palette-swatch" style="background:${p.ink}"></div>
+        <div class="palette-swatch" style="background:${p.accent}"></div>
+        <div class="palette-swatch" style="background:${p.cardBg}"></div>
+        <div class="palette-swatch" style="background:${p.muted}"></div>
+      </div>
+      <div class="palette-name">${p.name}</div>
+    </div>
+  `).join('');
+
+  // Populate all form fields from current designState
+  document.getElementById('design-advanced-toggle').checked = designState.custom;
+  document.getElementById('advanced-colors').style.display = designState.custom ? 'block' : 'none';
+
+  document.getElementById('dc-bg').value = designState.bg;
+  document.getElementById('dc-bg-text').value = designState.bg;
+  document.getElementById('dc-ink').value = designState.ink;
+  document.getElementById('dc-ink-text').value = designState.ink;
+  document.getElementById('dc-accent').value = designState.accent;
+  document.getElementById('dc-accent-text').value = designState.accent;
+  document.getElementById('dc-card-bg').value = designState.cardBg;
+  document.getElementById('dc-card-bg-text').value = designState.cardBg;
+  document.getElementById('dc-muted').value = designState.muted;
+  document.getElementById('dc-muted-text').value = designState.muted;
+
+  document.getElementById('dc-font-heading').value = designState.fontHeading;
+  document.getElementById('dc-font-body').value = designState.fontBody;
+  document.getElementById('dc-base-size').value = designState.baseFontSize;
+  document.getElementById('dc-base-size-display').textContent = designState.baseFontSize + 'px';
+
+  document.getElementById('dc-page-width').value = designState.pageWidth;
+  document.getElementById('dc-page-width-display').textContent = designState.pageWidth + 'px';
+  document.getElementById('dc-section-y').value = designState.sectionPaddingY;
+  document.getElementById('dc-section-y-display').textContent = designState.sectionPaddingY + 'rem';
+  document.getElementById('dc-slideshow-height').value = designState.slideshowHeight;
+  document.getElementById('dc-slideshow-height-display').textContent = designState.slideshowHeight + 'px';
+  document.getElementById('dc-radius').value = designState.borderRadius;
+  document.getElementById('dc-radius-display').textContent = designState.borderRadius + 'px';
+
+  document.getElementById('dc-card-size').value = designState.cardSize;
+  document.getElementById('dc-card-aspect').value = designState.cardAspect;
+  document.getElementById('dc-card-divider').value = designState.cardDivider;
+  document.getElementById('dc-filter-style').value = designState.filterStyle;
+
+  // Background pattern fields
+  document.getElementById('dc-bg-pattern').value = designState.bgPattern || '';
+  document.getElementById('topo-controls').style.display = designState.bgPattern === 'topo' ? 'block' : 'none';
+  document.getElementById('dc-topo-line').value = designState.topoLine || designState.accent;
+  document.getElementById('dc-topo-line-text').value = designState.topoLine || designState.accent;
+  document.getElementById('dc-topo-bg').value = designState.topoBg || designState.bg;
+  document.getElementById('dc-topo-bg-text').value = designState.topoBg || designState.bg;
+  document.getElementById('dc-topo-opacity').value = designState.topoOpacity;
+  document.getElementById('dc-topo-opacity-display').textContent = (+designState.topoOpacity).toFixed(2);
+  document.getElementById('dc-topo-density').value = designState.topoDensity;
+  document.getElementById('dc-topo-density-display').textContent = designState.topoDensity;
+  document.getElementById('dc-topo-scale').value = designState.topoScale;
+  document.getElementById('dc-topo-scale-display').textContent = designState.topoScale + 'px';
+  document.getElementById('dc-topo-thickness').value = designState.topoThickness;
+  document.getElementById('dc-topo-thickness-display').textContent = (+designState.topoThickness).toFixed(1);
+
+  openModal('design-modal');
+}
+
+function switchDesignTab(event) {
+  const tab = event.target.dataset.tab;
+  document.querySelectorAll('.design-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.design-tab-panel').forEach(p => {
+    p.style.display = p.id === 'design-panel-' + tab ? 'block' : 'none';
+  });
+}
+
+function selectPalette(id) {
+  const palette = findPaletteById(id);
+  designState.palette = id;
+  designState.ink = palette.ink;
+  designState.muted = palette.muted;
+  designState.bg = palette.bg;
+  designState.cardBg = palette.cardBg;
+  designState.accent = palette.accent;
+  designState.custom = false;
+
+  // Refresh the modal UI to show new palette as active and update advanced inputs
+  document.querySelectorAll('.palette-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.palette === id);
+  });
+  document.getElementById('dc-bg').value = palette.bg;
+  document.getElementById('dc-bg-text').value = palette.bg;
+  document.getElementById('dc-ink').value = palette.ink;
+  document.getElementById('dc-ink-text').value = palette.ink;
+  document.getElementById('dc-accent').value = palette.accent;
+  document.getElementById('dc-accent-text').value = palette.accent;
+  document.getElementById('dc-card-bg').value = palette.cardBg;
+  document.getElementById('dc-card-bg-text').value = palette.cardBg;
+  document.getElementById('dc-muted').value = palette.muted;
+  document.getElementById('dc-muted-text').value = palette.muted;
+  document.getElementById('design-advanced-toggle').checked = false;
+  document.getElementById('advanced-colors').style.display = 'none';
+
+  // Sync topo background to match new palette bg (if topo is enabled)
+  if (designState.bgPattern === 'topo') {
+    // Only auto-update topo bg if it was matching the previous palette's bg
+    designState.topoBg = palette.bg;
+    document.getElementById('dc-topo-bg').value = palette.bg;
+    document.getElementById('dc-topo-bg-text').value = palette.bg;
+  }
+
+  applyDesign(designState);
+}
+
+function toggleAdvancedColors() {
+  const checked = document.getElementById('design-advanced-toggle').checked;
+  document.getElementById('advanced-colors').style.display = checked ? 'block' : 'none';
+  designState.custom = checked;
+}
+
+function syncColorInput(colorPickerId, textInput) {
+  const v = textInput.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    document.getElementById(colorPickerId).value = v;
+    previewDesign();
+  }
+}
+
+function previewDesign() {
+  // Read every field and apply
+  designState.bg = document.getElementById('dc-bg').value;
+  designState.ink = document.getElementById('dc-ink').value;
+  designState.accent = document.getElementById('dc-accent').value;
+  designState.cardBg = document.getElementById('dc-card-bg').value;
+  designState.muted = document.getElementById('dc-muted').value;
+
+  // Sync text inputs to color pickers
+  document.getElementById('dc-bg-text').value = designState.bg;
+  document.getElementById('dc-ink-text').value = designState.ink;
+  document.getElementById('dc-accent-text').value = designState.accent;
+  document.getElementById('dc-card-bg-text').value = designState.cardBg;
+  document.getElementById('dc-muted-text').value = designState.muted;
+
+  designState.fontHeading = document.getElementById('dc-font-heading').value;
+  designState.fontBody = document.getElementById('dc-font-body').value;
+  designState.baseFontSize = document.getElementById('dc-base-size').value;
+
+  designState.pageWidth = document.getElementById('dc-page-width').value;
+  designState.sectionPaddingY = document.getElementById('dc-section-y').value;
+  designState.slideshowHeight = document.getElementById('dc-slideshow-height').value;
+  designState.borderRadius = document.getElementById('dc-radius').value;
+
+  designState.cardSize = document.getElementById('dc-card-size').value;
+  designState.cardAspect = document.getElementById('dc-card-aspect').value;
+  designState.cardDivider = document.getElementById('dc-card-divider').value;
+  designState.filterStyle = document.getElementById('dc-filter-style').value;
+
+  designState.custom = document.getElementById('design-advanced-toggle').checked;
+
+  // Background pattern
+  designState.bgPattern = document.getElementById('dc-bg-pattern').value;
+  document.getElementById('topo-controls').style.display = designState.bgPattern === 'topo' ? 'block' : 'none';
+  designState.topoLine = document.getElementById('dc-topo-line').value;
+  designState.topoBg = document.getElementById('dc-topo-bg').value;
+  document.getElementById('dc-topo-line-text').value = designState.topoLine;
+  document.getElementById('dc-topo-bg-text').value = designState.topoBg;
+  designState.topoOpacity = document.getElementById('dc-topo-opacity').value;
+  designState.topoDensity = document.getElementById('dc-topo-density').value;
+  designState.topoScale = document.getElementById('dc-topo-scale').value;
+  designState.topoThickness = document.getElementById('dc-topo-thickness').value;
+
+  applyDesign(designState);
+}
+
+function cancelDesign() {
+  // Restore original
+  if (designStateBackup) {
+    designState = { ...designStateBackup };
+    applyDesign(designState);
+  }
+  closeModal('design-modal');
+}
+
+async function saveDesign() {
+  previewDesign(); // make sure state is up-to-date
+
+  const btn = document.getElementById('save-design-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('site_content').upsert({
+    key: '_design',
+    value: JSON.stringify(designState)
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (error) { toast('Could not save: ' + error.message, true); return; }
+
+  // Also update local cache
+  state.text._design = JSON.stringify(designState);
+  designStateBackup = null;
+  closeModal('design-modal');
+  toast('Design saved');
+}
+
+async function resetDesign() {
+  if (!confirm('Reset design to default? This will undo all your design changes.')) return;
+  designState = { palette: 'default', custom: false, ...DESIGN_DEFAULTS };
+  applyDesign(designState);
+
+  // Save the reset to database
+  const { error } = await sb.from('site_content').upsert({
+    key: '_design',
+    value: JSON.stringify(designState)
+  });
+  if (error) { toast('Reset locally but could not save', true); return; }
+
+  state.text._design = JSON.stringify(designState);
+  designStateBackup = null;
+  closeModal('design-modal');
+  toast('Design reset to default');
+}
+
+function loadDesignFromSiteContent() {
+  // Called after loadContent runs
+  const raw = state.text._design;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      designState = { ...DESIGN_DEFAULTS, palette: 'default', custom: false, ...parsed };
+    } catch (e) {
+      console.warn('Could not parse design settings:', e);
+    }
+  }
+  applyDesign(designState);
+}
+
+
+(async function init() {
+  await checkSession();
+  await initialLoad();
+})();
+</script>
+
+</body>
+</html>
